@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ConnectSphere - A modern, secure, and accessible social networking platform to connect with ideas and people.">
+  <meta name="theme-color" content="#101323">
+  <meta name="description" content="ConnectSphere - A distinctive, user-controlled social networking platform with transparent feeds and respectful wellbeing.">
   <title>{% block title %}ConnectSphere{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
   {% block extra_head %}{% endblock %}
@@ -15,18 +16,31 @@
   <header class="navbar" role="banner">
     <div class="nav-container">
       <a href="{% url 'posts:feed' %}" class="brand-link" id="brand-logo" aria-label="ConnectSphere Home">
-        <span class="brand-logo-icon">CS</span>
-        <span>ConnectSphere</span>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 3a14 14 0 0 1 0 18"></path>
+            <path d="M3 12h18"></path>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-text-prefix">Connect</span><span class="brand-text-suffix">Sphere</span>
+        </span>
       </a>
 
       {% if user.is_authenticated %}
       <div class="nav-search">
         <form action="{% url 'accounts:search' %}" method="get" class="nav-search-form" role="search">
-          <span class="nav-search-icon" aria-hidden="true">🔍</span>
+          <span class="nav-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
           <input 
             type="search" 
             name="q" 
-            placeholder="Search users on ConnectSphere..." 
+            placeholder="Search creators & topics..." 
             class="nav-search-input" 
             aria-label="Search users"
             id="global-search-input"
@@ -37,15 +51,26 @@
 
       <nav class="nav-actions" role="navigation" aria-label="Main Navigation">
         <a href="{% url 'posts:feed' %}" class="nav-link {% if request.resolver_match.url_name == 'feed' %}active{% endif %}" id="nav-feed">
-          <span>🏠</span> Home
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span>Home</span>
         </a>
 
         <a href="{% url 'social:saved_posts' %}" class="nav-link {% if request.resolver_match.url_name == 'saved_posts' %}active{% endif %}" id="nav-bookmarks">
-          <span>📑</span> Saved
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Saved</span>
         </a>
 
         <a href="{% url 'notifications:list' %}" class="nav-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}" id="nav-notifications">
-          <span>🔔</span> Notifications
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span>Alerts</span>
           {% if unread_notifications_count > 0 %}
             <span class="badge-counter" id="unread-notification-badge">{{ unread_notifications_count }}</span>
           {% endif %}
@@ -53,7 +78,10 @@
 
         {% if user.is_staff %}
         <a href="{% url 'moderation:dashboard' %}" class="nav-link {% if request.resolver_match.app_name == 'moderation' %}active{% endif %}" id="nav-moderation">
-          <span>🛡️</span> Moderation
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>Moderation</span>
         </a>
         {% endif %}
 
@@ -68,7 +96,7 @@
 
         <form action="{% url 'accounts:logout' %}" method="post" style="display:inline;">
           {% csrf_token %}
-          <button type="submit" class="btn btn-secondary btn-sm" id="btn-logout" title="Sign out">
+          <button type="submit" class="btn btn-secondary btn-sm" id="btn-logout" title="Sign out of ConnectSphere">
             Sign out
           </button>
         </form>
@@ -88,7 +116,7 @@
     {% for message in messages %}
       <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
         <span>{{ message }}</span>
-        <button type="button" class="alert-close" aria-label="Close message">&times;</button>
+        <button type="button" class="alert-close" aria-label="Close notification">&times;</button>
       </div>
     {% endfor %}
   </div>
