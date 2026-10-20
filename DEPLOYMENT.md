@@ -35,6 +35,8 @@ cp .env.example .env
 | `DATABASE_URL` | Optional | *SQLite fallback* | PostgreSQL connection string. Format: `postgres://<user>:<password>@<host>:<port>/<dbname>`. |
 | `DJANGO_SECURE_SSL_REDIRECT` | Optional | `True` | Enforces HTTPS redirection. Set to `False` if SSL is terminated at an edge proxy and forwarded via `X-Forwarded-Proto`. |
 | `DJANGO_SECURE_HSTS_SECONDS` | Optional | `31536000` | HTTP Strict Transport Security duration (1 year). |
+| `DJANGO_SECURE_HSTS_SUBDOMAINS` | Optional | `False` | Enforce HSTS on all subdomains. Only enable if ALL subdomains support SSL. |
+| `DJANGO_SECURE_HSTS_PRELOAD` | Optional | `False` | Submit domain to browser HSTS preload list. Only enable with verified HTTPS. |
 | `GUNICORN_BIND` | Optional | `0.0.0.0:8000` | Address and port for Gunicorn binding. |
 | `GUNICORN_WORKERS` | Optional | `4` | Number of worker processes (`2 * CPU cores`). |
 | `GUNICORN_TIMEOUT` | Optional | `30` | Request timeout before worker restart. |
