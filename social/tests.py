@@ -76,3 +76,44 @@ class SocialFeaturesTests(TestCase):
         self.client.login(username='alice', password='Password123!')
         resp = self.client.post(reverse('social:block_toggle', kwargs={'username': 'alice'}))
         self.assertEqual(resp.status_code, 400)
+
+    def test_mute_and_unmute_user(self):
+        """User can mute and unmute an account without blocking."""
+        from social.models import Mute
+        self.client.login(username='alice', password='Password123!')
+        mute_url = reverse('social:mute_toggle', kwargs={'username': 'bob'})
+
+        # Mute Bob
+        resp = self.client.post(mute_url)
+        self.assertTrue(Mute.objects.filter(muter=self.user1, muted=self.user2).exists())
+
+        # Unmute Bob
+        resp = self.client.post(mute_url)
+        self.assertFalse(Mute.objects.filter(muter=self.user1, muted=self.user2).exists())
+
+    def test_cannot_mute_self(self):
+        """User cannot mute their own account."""
+        self.client.login(username='alice', password='Password123!')
+        resp = self.client.post(reverse('social:mute_toggle', kwargs={'username': 'alice'}))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_muted_user_posts_hidden_from_feed(self):
+        """Muted user's posts are excluded from the muter's feed."""
+        from social.models import Mute
+        Follow.objects.create(follower=self.user1, following=self.user2)
+
+        # Before mute: Alice sees Bob's post in Following feed
+        self.client.login(username='alice', password='Password123!')
+        resp1 = self.client.get(reverse('posts:feed') + '?mode=following')
+        self.assertContains(resp1, "Bob post")
+
+        # Alice mutes Bob
+        Mute.objects.create(muter=self.user1, muted=self.user2)
+
+        # After mute: Alice no longer sees Bob's post in feed
+        resp2 = self.client.get(reverse('posts:feed') + '?mode=following')
+        self.assertNotContains(resp2, "Bob post")
+
+        # Discover feed also excludes Bob's post
+        resp_disc = self.client.get(reverse('posts:feed') + '?mode=discover')
+        self.assertNotContains(resp_disc, "Bob post")

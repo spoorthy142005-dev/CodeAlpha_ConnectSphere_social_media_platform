@@ -8,7 +8,7 @@ from django.db.models import Q
 from .models import Post, Like, Comment, Community, CommunityMembership
 from .forms import PostCreateForm, PostEditForm, CommentForm, CommunityForm
 from social.models import Follow
-from social.utils import get_blocked_user_ids, is_blocked_relationship
+from social.utils import get_blocked_user_ids, is_blocked_relationship, get_muted_user_ids
 from notifications.utils import create_notification
 
 
@@ -18,7 +18,7 @@ def feed_view(request):
     Main feed view supporting 'following' and 'discover' modes, topic filters,
     and user-controlled recommendation explanations.
     Chronological order with pagination.
-    Excludes blocked users and private profiles that the user doesn't follow.
+    Excludes blocked users, muted users, and enforces post audience controls.
     """
     # 1. Determine feed mode (honoring user's preferred default mode if not specified in URL)
     raw_mode = request.GET.get('mode')
@@ -31,24 +31,39 @@ def feed_view(request):
     topic_filter = request.GET.get('topic', '').strip()
     user_muted_topics = [t.lower() for t in getattr(request.user.profile, 'muted_topics', [])]
     blocked_user_ids = get_blocked_user_ids(request.user)
+    muted_user_ids = get_muted_user_ids(request.user)
+    hidden_user_ids = blocked_user_ids | muted_user_ids
+
+    # User joined communities
+    joined_community_ids = list(request.user.community_memberships.values_list('community_id', flat=True))
 
     if feed_mode == 'following':
         following_user_ids = list(
             request.user.following_set.values_list('following_id', flat=True)
         )
-        # Include current user's posts as well in their home feed
-        author_ids = set(following_user_ids + [request.user.id]) - blocked_user_ids
-        posts_qs = Post.objects.filter(author_id__in=author_ids)
+        # Include current user's posts as well in their home feed; exclude blocked/muted
+        author_ids = set(following_user_ids + [request.user.id]) - hidden_user_ids
+        posts_qs = Post.objects.filter(author_id__in=author_ids).filter(
+            Q(author=request.user) |
+            Q(audience__in=['public', 'followers']) |
+            Q(audience='community', community_id__in=joined_community_ids)
+        )
         if topic_filter:
             posts_qs = posts_qs.filter(topic__iexact=topic_filter)
     else:
         # Discover mode: recent public posts from others (and followed private accounts)
         following_user_ids = set(request.user.following_set.values_list('following_id', flat=True))
-        # Visible posts: not blocked, and (not private OR author is in following OR author is self)
-        posts_qs = Post.objects.exclude(author_id__in=blocked_user_ids).filter(
-            Q(author__profile__is_private=False) |
-            Q(author_id__in=following_user_ids) |
-            Q(author=request.user)
+        # Visible posts: not hidden (blocked or muted), and obeys privacy & audience rules:
+        posts_qs = Post.objects.exclude(author_id__in=hidden_user_ids).filter(
+            Q(author=request.user) |
+            (
+                (Q(author__profile__is_private=False) | Q(author_id__in=following_user_ids)) &
+                (
+                    Q(audience='public') |
+                    Q(audience='followers', author_id__in=following_user_ids) |
+                    Q(audience='community', community_id__in=joined_community_ids)
+                )
+            )
         )
         if topic_filter:
             posts_qs = posts_qs.filter(topic__iexact=topic_filter)
@@ -155,7 +170,7 @@ def post_create_view(request):
 @login_required
 def post_detail_view(request, post_id):
     post = get_object_or_404(
-        Post.objects.select_related('author', 'author__profile').prefetch_related('comments__author__profile', 'likes'),
+        Post.objects.select_related('author', 'author__profile', 'community').prefetch_related('comments__author__profile', 'likes'),
         id=post_id
     )
 
@@ -164,12 +179,10 @@ def post_detail_view(request, post_id):
         messages.error(request, "This post is unavailable.")
         return redirect('posts:feed')
 
-    # Check privacy
-    if post.author != request.user and post.author.profile.is_private:
-        is_following = Follow.objects.filter(follower=request.user, following=post.author).exists()
-        if not is_following:
-            messages.error(request, "This post is from a private account.")
-            return redirect('accounts:profile_detail', username=post.author.username)
+    # Centralized authorization: checks private account, follower status, community membership, and audience
+    if not post.is_visible_to(request.user):
+        messages.error(request, "This post is restricted or unavailable to your account.")
+        return redirect('posts:feed')
 
     comment_form = CommentForm()
 
@@ -227,10 +240,10 @@ def post_delete_view(request, post_id):
 def post_like_toggle_view(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
-    # Check blocked relationship
-    if is_blocked_relationship(request.user, post.author):
+    # Check blocked relationship or restricted audience
+    if is_blocked_relationship(request.user, post.author) or not post.is_visible_to(request.user):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'error': 'Action not permitted with blocked user.'}, status=403)
+            return JsonResponse({'error': 'Action not permitted on this post.'}, status=403)
         messages.error(request, "Cannot interact with this content.")
         return redirect('posts:feed')
 
@@ -260,8 +273,8 @@ def post_like_toggle_view(request, post_id):
 def comment_create_view(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
-    # Check blocked
-    if is_blocked_relationship(request.user, post.author):
+    # Check blocked or restricted audience
+    if is_blocked_relationship(request.user, post.author) or not post.is_visible_to(request.user):
         messages.error(request, "Cannot comment on this post.")
         return redirect('posts:feed')
 
@@ -448,12 +461,22 @@ def community_detail_view(request, slug):
     blocked_user_ids = get_blocked_user_ids(request.user)
     following_user_ids = set(request.user.following_set.values_list('following_id', flat=True))
 
-    # Posts in community: exclude blocked users; enforce private account protections
+    is_member = community.is_member(request.user)
+    is_moderator = community.is_moderator_or_creator(request.user)
+    user_membership = community.memberships.filter(user=request.user).first()
+
+    # Posts in community: exclude blocked users; enforce audience and private account rules
+    allowed_audiences = ['public']
+    if is_member:
+        allowed_audiences.append('community')
+
     posts_qs = community.posts.exclude(author_id__in=blocked_user_ids).filter(
-        Q(author__profile__is_private=False) |
-        Q(author_id__in=following_user_ids) |
-        Q(author=request.user)
-    ).select_related('author', 'author__profile').prefetch_related('likes', 'comments').order_by('-created_at')
+        Q(author=request.user) |
+        (
+            (Q(author__profile__is_private=False) | Q(author_id__in=following_user_ids)) &
+            (Q(audience__in=allowed_audiences) | Q(audience='followers', author_id__in=following_user_ids))
+        )
+    ).select_related('author', 'author__profile', 'community').prefetch_related('likes', 'comments').order_by('-created_at')
 
     paginator = Paginator(posts_qs, 10)
     page_number = request.GET.get('page')
@@ -461,10 +484,6 @@ def community_detail_view(request, slug):
 
     for p in page_obj:
         p.recommendation_reason = f"c/{community.slug} community stream"
-
-    is_member = community.is_member(request.user)
-    is_moderator = community.is_moderator_or_creator(request.user)
-    user_membership = community.memberships.filter(user=request.user).first()
 
     post_form = PostCreateForm(user=request.user, community=community) if is_member else None
     comment_form = CommentForm()

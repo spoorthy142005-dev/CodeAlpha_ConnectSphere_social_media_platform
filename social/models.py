@@ -68,3 +68,27 @@ class Block(models.Model):
 
     def __str__(self):
         return f"{self.blocker.username} blocked {self.blocked.username}"
+
+
+class Mute(models.Model):
+    muter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='muting_set')
+    muted = models.ForeignKey(User, on_delete=models.CASCADE, related_name='muted_by_set')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['muter', 'muted'], name='unique_mute_relation'),
+            models.CheckConstraint(condition=~Q(muter=F('muted')), name='prevent_self_mute')
+        ]
+        indexes = [
+            models.Index(fields=['muter', 'muted']),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.muter_id == self.muted_id:
+            raise ValidationError("You cannot mute yourself.")
+
+    def __str__(self):
+        return f"{self.muter.username} muted {self.muted.username}"
+

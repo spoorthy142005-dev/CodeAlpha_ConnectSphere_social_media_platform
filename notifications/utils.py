@@ -11,6 +11,11 @@ def create_notification(recipient, actor, event_type, post=None, comment=None):
     if not recipient or not actor or recipient == actor:
         return None
 
+    # Enforce recipient's notification and quiet hours preferences
+    profile = getattr(recipient, 'profile', None)
+    if profile and not profile.should_receive_notification(event_type):
+        return None
+
     # Check for existing unread notification for the same action
     existing = Notification.objects.filter(
         recipient=recipient,

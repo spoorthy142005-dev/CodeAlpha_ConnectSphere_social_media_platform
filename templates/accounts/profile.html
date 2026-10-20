@@ -31,6 +31,9 @@
           <a href="{% url 'accounts:profile_edit' %}" class="btn btn-secondary btn-sm" id="btn-edit-profile">
             ✏️ Edit Profile
           </a>
+          <a href="{% url 'accounts:privacy_center' %}" class="btn btn-secondary btn-sm" id="btn-privacy-center">
+            🛡️ Privacy & Wellbeing
+          </a>
           <a href="{% url 'social:blocked_users' %}" class="btn btn-secondary btn-sm" id="btn-manage-blocked">
             🚫 Blocked Users
           </a>
@@ -41,6 +44,19 @@
               <button type="submit" class="btn btn-secondary btn-sm" id="btn-unfollow">Following</button>
             {% else %}
               <button type="submit" class="btn btn-primary btn-sm" id="btn-follow">+ Follow</button>
+            {% endif %}
+          </form>
+
+          <form action="{% url 'social:mute_toggle' username=target_user.username %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            {% if is_muted %}
+              <button type="submit" class="btn btn-secondary btn-sm" id="btn-unmute-user" title="Unmute this account">
+                🔊 Unmute
+              </button>
+            {% else %}
+              <button type="submit" class="btn btn-secondary btn-sm" id="btn-mute-user" title="Hide this user's posts from your feed">
+                🔇 Mute
+              </button>
             {% endif %}
           </form>
 

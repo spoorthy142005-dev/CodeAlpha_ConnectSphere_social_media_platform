@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Account Confirmation - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center" style="max-width: 600px; margin: 2rem auto; padding: 0 1rem;">
+  <div class="sidebar-card" style="border: 2px solid #feb2b2; background: #fff;">
+    
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; border-bottom: 1px solid #fed7d7; padding-bottom: 1rem;">
+      <span style="font-size: 2rem;">⚠️</span>
+      <div>
+        <h1 style="font-size: 1.35rem; color: #c53030; font-weight: 800; margin: 0;">Permanent Account Deletion</h1>
+        <p style="font-size: 0.85rem; color: #742a2a; margin: 0.2rem 0 0 0;">
+          This action is irreversible. Please review the details below carefully.
+        </p>
+      </div>
+    </div>
+
+    <!-- Impact Warning Banner -->
+    <div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: #9b2c2c; margin-bottom: 0.5rem;">
+        What will happen when you delete your account:
+      </h3>
+      <ul style="font-size: 0.85rem; color: #742a2a; margin: 0; padding-left: 1.25rem; line-height: 1.6;">
+        <li>Your profile information, bio, and avatar will be permanently removed.</li>
+        <li>All of your <strong>{{ posts_count }} posts</strong> and <strong>{{ comments_count }} comments</strong> will be deleted.</li>
+        <li>Your follow relationships and bookmarks will be cleared.</li>
+        <li>Any topic communities you created will remain accessible for other members to preserve shared discussions (creator attribute set to null).</li>
+        <li>Your active login session will be revoked immediately.</li>
+      </ul>
+    </div>
+
+    <!-- Confirmation Form -->
+    <form method="post" id="account-delete-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger" style="margin-bottom: 1rem;">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label for="id_confirmation_username" class="form-label" style="font-weight: 700; color: var(--navy-dark);">
+          To confirm, type your username (<strong>{{ request.user.username }}</strong>):
+        </label>
+        {{ form.confirmation_username }}
+        {% if form.confirmation_username.errors %}
+          <ul class="form-error-list">{% for err in form.confirmation_username.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_password" class="form-label" style="font-weight: 700; color: var(--navy-dark);">
+          Confirm your account password:
+        </label>
+        {{ form.password }}
+        {% if form.password.errors %}
+          <ul class="form-error-list">{% for err in form.password.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div style="margin-bottom: 1.5rem; padding: 0.85rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+        <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+          {{ form.confirm_permanent_loss }}
+          <div>
+            <label for="id_confirm_permanent_loss" style="font-size: 0.85rem; font-weight: 700; color: #c53030; cursor: pointer; display: block;">
+              I understand that deleting my account is permanent and cannot be undone.
+            </label>
+          </div>
+        </div>
+        {% if form.confirm_permanent_loss.errors %}
+          <ul class="form-error-list" style="margin-top: 0.5rem;">{% for err in form.confirm_permanent_loss.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+        <a href="{% url 'accounts:privacy_center' %}" class="btn btn-secondary" id="btn-cancel-delete">
+          ← Cancel and Return to Safety
+        </a>
+        <button type="submit" class="btn btn-primary" id="btn-confirm-delete-account" style="background-color: #e53e3e; border-color: #e53e3e; color: #fff;">
+          Permanently Delete My Account
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

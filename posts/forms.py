@@ -25,7 +25,7 @@ class PostCreateForm(forms.ModelForm):
 
     class Meta:
         model = Post
-        fields = ['content', 'image', 'topic', 'community']
+        fields = ['content', 'image', 'topic', 'community', 'audience']
         widgets = {
             'content': forms.Textarea(attrs={
                 'placeholder': "What's happening in your sphere? Share thoughts, links, or ideas...",
@@ -40,19 +40,29 @@ class PostCreateForm(forms.ModelForm):
             'community': forms.Select(attrs={
                 'class': 'form-control post-community-select',
             }),
+            'audience': forms.Select(attrs={
+                'class': 'form-control post-audience-select',
+            }),
         }
 
     def __init__(self, *args, user=None, community=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.user = user
+        if 'audience' in self.fields:
+            self.fields['audience'].required = False
+
         if community:
             self.fields['community'].initial = community
             self.fields['community'].widget = forms.HiddenInput()
+            self.fields['audience'].initial = 'community'
         elif user and user.is_authenticated:
             # Show communities user has joined
             joined_community_ids = user.community_memberships.values_list('community_id', flat=True)
             self.fields['community'].queryset = Community.objects.filter(id__in=joined_community_ids)
             self.fields['community'].empty_label = "— Public Sphere (No Community) —"
             self.fields['community'].required = False
+            default_aud = getattr(user.profile, 'default_post_audience', 'public')
+            self.fields['audience'].initial = default_aud
         else:
             self.fields['community'].queryset = Community.objects.none()
             self.fields['community'].required = False
@@ -61,9 +71,21 @@ class PostCreateForm(forms.ModelForm):
         cleaned_data = super().clean()
         content = (cleaned_data.get('content') or '').strip()
         image = cleaned_data.get('image')
+        audience = cleaned_data.get('audience')
+        community = cleaned_data.get('community')
+
+        if not audience:
+            default_aud = 'public'
+            if self.user and hasattr(self.user, 'profile'):
+                default_aud = getattr(self.user.profile, 'default_post_audience', 'public')
+            cleaned_data['audience'] = default_aud
+            audience = default_aud
 
         if not content and not image:
             raise ValidationError("Please write some text or attach an image to publish a post.")
+        if audience == 'community' and not community:
+            # If community was not selected, default audience to public
+            cleaned_data['audience'] = 'public'
         return cleaned_data
 
 
@@ -76,7 +98,7 @@ class PostEditForm(forms.ModelForm):
 
     class Meta:
         model = Post
-        fields = ['content', 'image', 'topic']
+        fields = ['content', 'image', 'topic', 'audience']
         widgets = {
             'content': forms.Textarea(attrs={
                 'placeholder': "Update your post content...",
@@ -88,12 +110,22 @@ class PostEditForm(forms.ModelForm):
                 'class': 'form-control-file',
                 'accept': 'image/*',
             }),
+            'audience': forms.Select(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'audience' in self.fields:
+            self.fields['audience'].required = False
 
     def clean(self):
         cleaned_data = super().clean()
         content = (cleaned_data.get('content') or '').strip()
         image = cleaned_data.get('image')
+        audience = cleaned_data.get('audience')
+
+        if not audience and self.instance:
+            cleaned_data['audience'] = self.instance.audience or 'public'
 
         # If editing and clearing existing content without an image
         if not content and not image and not self.instance.image:

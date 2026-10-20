@@ -376,3 +376,102 @@ class PostsAndFeedInteractionsTests(TestCase):
         self.assertNotContains(resp, "Bob post to be blocked in community")
 
 
+class PostAudienceEnforcementTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.alice = User.objects.create_user(username='alice', password='Password123!')
+        self.bob = User.objects.create_user(username='bob', password='Password123!')
+        self.charlie = User.objects.create_user(username='charlie', password='Password123!')
+
+        self.comm = Community.objects.create(
+            name='Privacy Hub',
+            slug='privacy-hub',
+            topic='technology',
+            description='Community for privacy discussions',
+            creator=self.alice
+        )
+        CommunityMembership.objects.create(community=self.comm, user=self.alice, role='admin')
+        CommunityMembership.objects.create(community=self.comm, user=self.bob, role='member')
+
+        # Posts with different audiences
+        self.public_post = Post.objects.create(
+            author=self.alice,
+            content="Alice public sphere post",
+            audience='public'
+        )
+        self.followers_post = Post.objects.create(
+            author=self.alice,
+            content="Alice followers-only post",
+            audience='followers'
+        )
+        self.community_post = Post.objects.create(
+            author=self.alice,
+            community=self.comm,
+            content="Alice community-only discussion",
+            audience='community'
+        )
+
+    def test_public_post_visible_to_all(self):
+        """Public post is accessible via post_detail to all users."""
+        self.client.login(username='bob', password='Password123!')
+        resp = self.client.get(reverse('posts:post_detail', kwargs={'post_id': self.public_post.id}))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Alice public sphere post")
+
+    def test_followers_post_enforcement(self):
+        """Followers-only post is hidden from non-followers and visible to followers."""
+        detail_url = reverse('posts:post_detail', kwargs={'post_id': self.followers_post.id})
+
+        # Bob does NOT follow Alice: access restricted
+        self.client.login(username='bob', password='Password123!')
+        resp_unfollowed = self.client.get(detail_url)
+        self.assertRedirects(resp_unfollowed, reverse('posts:feed'))
+
+        # Profile page also hides followers-only post from non-followers
+        prof_resp = self.client.get(reverse('accounts:profile_detail', kwargs={'username': 'alice'}))
+        self.assertNotContains(prof_resp, "Alice followers-only post")
+
+        # Bob follows Alice
+        Follow.objects.create(follower=self.bob, following=self.alice)
+
+        # Now Bob can view the post detail
+        resp_followed = self.client.get(detail_url)
+        self.assertEqual(resp_followed.status_code, 200)
+        self.assertContains(resp_followed, "Alice followers-only post")
+
+        # Now visible on Alice's profile to Bob
+        prof_resp2 = self.client.get(reverse('accounts:profile_detail', kwargs={'username': 'alice'}))
+        self.assertContains(prof_resp2, "Alice followers-only post")
+
+    def test_community_post_enforcement(self):
+        """Community audience post is visible only to community members."""
+        detail_url = reverse('posts:post_detail', kwargs={'post_id': self.community_post.id})
+
+        # Bob is a member: can access post detail
+        self.client.login(username='bob', password='Password123!')
+        resp_bob = self.client.get(detail_url)
+        self.assertEqual(resp_bob.status_code, 200)
+        self.assertContains(resp_bob, "Alice community-only discussion")
+
+        # Charlie is NOT a member: access restricted
+        self.client.login(username='charlie', password='Password123!')
+        resp_charlie = self.client.get(detail_url)
+        self.assertRedirects(resp_charlie, reverse('posts:feed'))
+
+        # Charlie cannot see it in community stream
+        comm_resp = self.client.get(reverse('posts:community_detail', kwargs={'slug': 'privacy-hub'}))
+        self.assertNotContains(comm_resp, "Alice community-only discussion")
+
+    def test_post_creation_with_audience_choice(self):
+        """User can specify audience when creating a post."""
+        self.client.login(username='alice', password='Password123!')
+        resp = self.client.post(reverse('posts:post_create'), {
+            'content': 'Test created followers post',
+            'audience': 'followers',
+        })
+        self.assertRedirects(resp, reverse('posts:feed'))
+        new_post = Post.objects.filter(content='Test created followers post').first()
+        self.assertIsNotNone(new_post)
+        self.assertEqual(new_post.audience, 'followers')
+
+

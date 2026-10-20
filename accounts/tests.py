@@ -105,3 +105,167 @@ class AuthenticationAndProfileTests(TestCase):
         response = self.client.get(reverse('accounts:search') + '?q=bob')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'bob')
+
+
+class PrivacyControlCenterAndDataOwnershipTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='alice', password='Password123!', email='alice@example.com')
+        self.user2 = User.objects.create_user(username='bob', password='Password123!', email='bob@example.com')
+
+    def test_privacy_center_view_get_and_post(self):
+        """User can view privacy center and update privacy & wellbeing settings."""
+        self.client.login(username='alice', password='Password123!')
+        get_resp = self.client.get(reverse('accounts:privacy_center'))
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertContains(get_resp, 'Privacy & Wellbeing Center')
+
+        # Save settings
+        post_resp = self.client.post(reverse('accounts:privacy_center'), {
+            'is_private': True,
+            'default_post_audience': 'followers',
+            'default_feed_mode': 'discover',
+            'low_bandwidth': True,
+            'notify_follows': True,
+            'notify_likes': False,
+            'notify_comments': True,
+            'notify_communities': True,
+            'notifications_paused': False,
+            'quiet_hours_enabled': True,
+            'quiet_hours_start': '22:00',
+            'quiet_hours_end': '08:00',
+        })
+        self.assertRedirects(post_resp, reverse('accounts:privacy_center'))
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.is_private)
+        self.assertEqual(self.user.profile.default_post_audience, 'followers')
+        self.assertEqual(self.user.profile.default_feed_mode, 'discover')
+        self.assertFalse(self.user.profile.notify_likes)
+        self.assertTrue(self.user.profile.quiet_hours_enabled)
+
+    def test_data_export_authenticated_and_excludes_credentials(self):
+        """Authenticated data export returns JSON and strictly excludes credentials."""
+        import json
+        from posts.models import Post
+        from social.models import Follow, Bookmark
+
+        # Create some data for Alice
+        post = Post.objects.create(author=self.user, content="Alice export test post")
+        Follow.objects.create(follower=self.user, following=self.user2)
+        Bookmark.objects.create(user=self.user, post=post)
+
+        self.client.login(username='alice', password='Password123!')
+        resp = self.client.get(reverse('accounts:data_export'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp['Content-Type'], 'application/json; charset=utf-8')
+        self.assertIn('attachment; filename="connectsphere_export_alice_', resp['Content-Disposition'])
+
+        payload = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(payload['export_metadata']['application'], 'ConnectSphere')
+        self.assertEqual(payload['account']['username'], 'alice')
+        self.assertEqual(payload['account']['email'], 'alice@example.com')
+        self.assertEqual(len(payload['posts']), 1)
+        self.assertEqual(payload['posts'][0]['content'], "Alice export test post")
+        self.assertEqual(len(payload['following']), 1)
+        self.assertEqual(len(payload['bookmarks']), 1)
+
+        # STRICT SECURITY CHECK: No passwords or credential hashes in export
+        raw_text = resp.content.decode('utf-8').lower()
+        self.assertNotIn('password', payload['account'])
+        self.assertNotIn('pbkdf2', raw_text)
+        self.assertNotIn('hash', payload['account'])
+        self.assertNotIn('secret_key', raw_text)
+
+    def test_data_export_requires_authentication(self):
+        """Unauthenticated data export is blocked and redirected to login."""
+        resp = self.client.get(reverse('accounts:data_export'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith(reverse('accounts:login')))
+
+    def test_account_deletion_flow_with_safety_and_preservation(self):
+        """
+        Account deletion requires deliberate username + password confirmation,
+        revokes session, deletes user data, but preserves community hub.
+        """
+        from posts.models import Post, Community, CommunityMembership
+        comm = Community.objects.create(
+            name='Preserved Hub',
+            slug='preserved-hub',
+            topic='technology',
+            description='Community that should survive creator deletion',
+            creator=self.user
+        )
+        CommunityMembership.objects.create(community=comm, user=self.user, role='admin')
+        CommunityMembership.objects.create(community=comm, user=self.user2, role='member')
+        Post.objects.create(author=self.user, content="Post by Alice")
+
+        self.client.login(username='alice', password='Password123!')
+
+        # 1. GET confirmation page
+        get_resp = self.client.get(reverse('accounts:account_delete'))
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertContains(get_resp, 'Permanent Account Deletion')
+
+        # 2. POST with mismatched username should fail
+        fail_resp1 = self.client.post(reverse('accounts:account_delete'), {
+            'confirmation_username': 'wrong_username',
+            'password': 'Password123!',
+            'confirm_permanent_loss': True,
+        })
+        self.assertEqual(fail_resp1.status_code, 200)
+        self.assertTrue(User.objects.filter(username='alice').exists())
+
+        # 3. POST with wrong password should fail
+        fail_resp2 = self.client.post(reverse('accounts:account_delete'), {
+            'confirmation_username': 'alice',
+            'password': 'WrongPassword!',
+            'confirm_permanent_loss': True,
+        })
+        self.assertEqual(fail_resp2.status_code, 200)
+        self.assertTrue(User.objects.filter(username='alice').exists())
+
+        # 4. Valid deletion
+        del_resp = self.client.post(reverse('accounts:account_delete'), {
+            'confirmation_username': 'alice',
+            'password': 'Password123!',
+            'confirm_permanent_loss': True,
+        })
+        self.assertRedirects(del_resp, reverse('accounts:login'))
+
+        # Alice is deleted
+        self.assertFalse(User.objects.filter(username='alice').exists())
+        self.assertEqual(Post.objects.count(), 0)
+
+        # Community Hub survives with creator set to None (models.SET_NULL)
+        comm.refresh_from_db()
+        self.assertIsNone(comm.creator)
+        self.assertEqual(comm.slug, 'preserved-hub')
+        self.assertTrue(CommunityMembership.objects.filter(community=comm, user=self.user2).exists())
+
+    def test_notification_preferences_server_enforcement(self):
+        """Notification categories and pause state are enforced on the server."""
+        from notifications.models import Notification
+        from notifications.utils import create_notification
+        from posts.models import Post
+
+        alice_post = Post.objects.create(author=self.user, content="Alice notification test")
+
+        # By default, like creates a notification
+        create_notification(recipient=self.user, actor=self.user2, event_type='like', post=alice_post)
+        self.assertEqual(Notification.objects.filter(recipient=self.user).count(), 1)
+
+        # Alice turns off notify_likes
+        self.user.profile.notify_likes = False
+        self.user.profile.save()
+
+        create_notification(recipient=self.user, actor=self.user2, event_type='like', post=alice_post)
+        # Count should still be 1 because notify_likes is False
+        self.assertEqual(Notification.objects.filter(recipient=self.user).count(), 1)
+
+        # Alice pauses all notifications
+        self.user.profile.notifications_paused = True
+        self.user.profile.save()
+
+        create_notification(recipient=self.user, actor=self.user2, event_type='follow')
+        # Count should still be 1 because notifications are paused
+        self.assertEqual(Notification.objects.filter(recipient=self.user).count(), 1)

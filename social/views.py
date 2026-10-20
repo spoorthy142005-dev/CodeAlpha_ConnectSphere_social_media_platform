@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_POST
 from django.core.paginator import Paginator
-from .models import Follow, Bookmark, Block
+from .models import Follow, Bookmark, Block, Mute
 from posts.models import Post
 from notifications.utils import create_notification
 from .utils import is_blocked_relationship
@@ -84,9 +84,9 @@ def following_list_view(request, username):
 def bookmark_toggle_view(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
-    if is_blocked_relationship(request.user, post.author):
+    if is_blocked_relationship(request.user, post.author) or not post.is_visible_to(request.user):
         messages.error(request, "Cannot bookmark this post.")
-        return HttpResponseBadRequest("Blocked content.")
+        return HttpResponseBadRequest("Restricted content.")
 
     bookmark = Bookmark.objects.filter(user=request.user, post=post).first()
     if bookmark:
@@ -152,3 +152,30 @@ def blocked_users_view(request):
     return render(request, 'social/blocked_users.html', {
         'blocked_records': blocked_records,
     })
+
+
+@login_required
+@require_POST
+def mute_toggle_view(request, username):
+    """Toggle muting/unmuting an account without blocking."""
+    target_user = get_object_or_404(User, username=username)
+
+    if target_user == request.user:
+        messages.error(request, "You cannot mute yourself.")
+        return HttpResponseBadRequest("Cannot mute self.")
+
+    existing_mute = Mute.objects.filter(muter=request.user, muted=target_user).first()
+    if existing_mute:
+        existing_mute.delete()
+        is_muted = False
+        messages.info(request, f"You have unmuted @{target_user.username}.")
+    else:
+        Mute.objects.create(muter=request.user, muted=target_user)
+        is_muted = True
+        messages.success(request, f"You have muted @{target_user.username}. Their posts will be hidden from your feeds.")
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'is_muted': is_muted})
+
+    return redirect(request.META.get('HTTP_REFERER') or 'accounts:profile_detail', username=target_user.username)
+

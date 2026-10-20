@@ -27,3 +27,15 @@ def is_blocked_relationship(user1, user2):
     return Block.objects.filter(
         Q(blocker=user1, blocked=user2) | Q(blocker=user2, blocked=user1)
     ).exists()
+
+
+def get_muted_user_ids(user):
+    """
+    Returns a set of User IDs that have been muted by `user`.
+    """
+    if not user or not user.is_authenticated:
+        return set()
+
+    from .models import Mute
+    return set(Mute.objects.filter(muter=user).values_list('muted_id', flat=True))
+

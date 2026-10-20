@@ -11,4 +11,6 @@ urlpatterns = [
     path('saved/', views.saved_posts_view, name='saved_posts'),
     path('block/<str:username>/', views.block_toggle_view, name='block_toggle'),
     path('settings/blocked/', views.blocked_users_view, name='blocked_users'),
+    path('mute/<str:username>/', views.mute_toggle_view, name='mute_toggle'),
 ]
+

@@ -54,7 +54,7 @@ class Community(models.Model):
     slug = models.SlugField(max_length=100, unique=True, db_index=True)
     description = models.TextField(max_length=600)
     topic = models.CharField(max_length=50, db_index=True)
-    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_communities')
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_communities')
     icon = models.ImageField(upload_to='communities/%Y/%m/', blank=True, null=True, validators=[validate_community_icon])
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -113,9 +113,15 @@ class CommunityMembership(models.Model):
 
 
 class Post(models.Model):
+    AUDIENCE_CHOICES = [
+        ('public', 'Public'),
+        ('followers', 'Followers Only'),
+        ('community', 'Community Members Only'),
+    ]
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posts')
     community = models.ForeignKey(Community, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts')
     topic = models.CharField(max_length=50, blank=True, default='', db_index=True)
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES, default='public', db_index=True)
     content = models.TextField(max_length=2000, blank=True, default='')
     image = models.ImageField(upload_to='posts/%Y/%m/', blank=True, null=True, validators=[validate_post_image])
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -126,6 +132,7 @@ class Post(models.Model):
         indexes = [
             models.Index(fields=['-created_at']),
             models.Index(fields=['author', '-created_at']),
+            models.Index(fields=['audience']),
         ]
 
     def __str__(self):
@@ -136,6 +143,8 @@ class Post(models.Model):
         super().clean()
         if not self.content.strip() and not self.image:
             raise ValidationError("A post must contain either text content or an image.")
+        if self.audience == 'community' and not self.community:
+            raise ValidationError("A community-only post must be assigned to a community.")
 
     @property
     def is_edited(self):
@@ -162,6 +171,46 @@ class Post(models.Model):
             return False
         return self.bookmarked_by.filter(user=user).exists()
 
+    def is_visible_to(self, viewer):
+        """
+        Evaluates whether viewer is authorized to see this post.
+        Enforces:
+        1. Author can always see their post.
+        2. Mutual block hides post in both directions.
+        3. Profile privacy: If author.profile.is_private, viewer must follow author.
+        4. Audience 'followers': Viewer must follow author.
+        5. Audience 'community': Viewer must be a member of self.community (if assigned).
+        """
+        if not viewer or not viewer.is_authenticated:
+            if self.author.profile.is_private or self.audience != 'public':
+                return False
+            return True
+
+        if viewer == self.author:
+            return True
+
+        from social.utils import is_blocked_relationship
+        if is_blocked_relationship(viewer, self.author):
+            return False
+
+        from social.models import Follow
+
+        if self.author.profile.is_private:
+            is_following = Follow.objects.filter(follower=viewer, following=self.author).exists()
+            if not is_following:
+                return False
+
+        if self.audience == 'followers':
+            is_following = Follow.objects.filter(follower=viewer, following=self.author).exists()
+            if not is_following:
+                return False
+
+        if self.audience == 'community' and self.community:
+            if not self.community.is_member(viewer):
+                return False
+
+        return True
+
     def get_recommendation_reason(self, user=None, feed_mode='discover', topic_filter=None):
         """Transparent, explainable reason for post inclusion."""
         if self.community:
@@ -176,6 +225,7 @@ class Post(models.Model):
         if self.topic:
             return f"Topic #{self.topic}"
         return "Public Discover feed"
+
 
 
 class Like(models.Model):

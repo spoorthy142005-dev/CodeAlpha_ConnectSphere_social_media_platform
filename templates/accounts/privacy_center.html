@@ -1,0 +1,360 @@
+{% extends 'base.html' %}
+
+{% block title %}Privacy Control Center & Content Wellbeing - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout" style="max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem;">
+  
+  <!-- Header Card -->
+  <div class="sidebar-card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(101, 88, 245, 0.08) 0%, rgba(31, 209, 249, 0.04) 100%);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+          <span style="font-size: 1.5rem;">🛡️</span>
+          <h1 style="font-size: 1.5rem; color: var(--navy-dark); font-weight: 800; margin: 0;">Privacy & Wellbeing Center</h1>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">
+          Transparent server-enforced controls over your visibility, notification wellbeing, data ownership, and feeds.
+        </p>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <a href="{% url 'accounts:data_export' %}" class="btn btn-secondary btn-sm" id="btn-export-data-top" title="Download your personal data archive">
+          ⬇️ Export My Data
+        </a>
+        <a href="{% url 'accounts:profile_detail' username=request.user.username %}" class="btn btn-secondary btn-sm">
+          Back to Profile
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Settings Form -->
+  <form method="post" id="privacy-settings-form">
+    {% csrf_token %}
+
+    <!-- Section 1: Audience & Profile Visibility -->
+    <div class="sidebar-card" style="margin-bottom: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+        <span style="font-size: 1.25rem;">🔒</span>
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--navy-dark); margin: 0;">Visibility & Audience Controls</h2>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <!-- Private Profile -->
+        <div style="display: flex; align-items: flex-start; gap: 0.85rem; padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+          {{ form.is_private }}
+          <div style="flex: 1;">
+            <label for="id_is_private" style="font-weight: 700; font-size: 0.95rem; color: var(--navy-dark); cursor: pointer; display: block;">
+              Private Profile
+            </label>
+            <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.2rem;">
+              When enabled, only accounts that follow you can view your posts, media, and timeline. Your profile header remains visible in searches, but post content is shielded on all endpoints.
+            </div>
+          </div>
+        </div>
+
+        <!-- Default Post Audience -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="id_default_post_audience" class="form-label" style="font-weight: 700; color: var(--navy-dark);">
+            Default Post Audience
+          </label>
+          <div style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Preselects the visibility target when you compose new posts. You can always override this on an individual post.
+          </div>
+          {{ form.default_post_audience }}
+        </div>
+
+        <!-- Default Feed Mode -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="id_default_feed_mode" class="form-label" style="font-weight: 700; color: var(--navy-dark);">
+            Default Home Feed View
+          </label>
+          <div style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Choose whether ConnectSphere opens to the Following feed or the Discover feed.
+          </div>
+          {{ form.default_feed_mode }}
+        </div>
+
+        <!-- Low Bandwidth Mode -->
+        <div style="display: flex; align-items: flex-start; gap: 0.85rem; padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+          {{ form.low_bandwidth }}
+          <div style="flex: 1;">
+            <label for="id_low_bandwidth" style="font-weight: 700; font-size: 0.95rem; color: var(--navy-dark); cursor: pointer; display: block;">
+              Low-Bandwidth & Accessibility Mode
+            </label>
+            <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Suppresses heavy animations, reduces high-intensity visual gradients, and maximizes performance on slower connections.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Notification Wellbeing & Quiet Hours -->
+    <div class="sidebar-card" style="margin-bottom: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+        <span style="font-size: 1.25rem;">🌿</span>
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--navy-dark); margin: 0;">Content Wellbeing & Notification Hygiene</h2>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <!-- Global Notification Pause -->
+        <div style="display: flex; align-items: flex-start; gap: 0.85rem; padding: 0.75rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: var(--radius-md);">
+          {{ form.notifications_paused }}
+          <div style="flex: 1;">
+            <label for="id_notifications_paused" style="font-weight: 700; font-size: 0.95rem; color: #856404; cursor: pointer; display: block;">
+              Pause All Notifications (Take a Break)
+            </label>
+            <div style="font-size: 0.825rem; color: #856404; margin-top: 0.2rem;">
+              Completely suppresses new incoming notifications on the server. You can catch up whenever you choose to unpause.
+            </div>
+          </div>
+        </div>
+
+        <!-- Category Granular Toggles -->
+        <div>
+          <label class="form-label" style="font-weight: 700; color: var(--navy-dark); margin-bottom: 0.5rem; display: block;">
+            Notification Categories
+          </label>
+          <div style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Disable specific interaction types to prevent notification fatigue.
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem;">
+            <!-- Follows -->
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+              {{ form.notify_follows }}
+              <label for="id_notify_follows" style="font-size: 0.875rem; font-weight: 600; color: var(--navy-dark); cursor: pointer; margin: 0;">
+                👥 New Followers
+              </label>
+            </div>
+
+            <!-- Likes -->
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+              {{ form.notify_likes }}
+              <label for="id_notify_likes" style="font-size: 0.875rem; font-weight: 600; color: var(--navy-dark); cursor: pointer; margin: 0;">
+                ❤️ Post Likes
+              </label>
+            </div>
+
+            <!-- Comments -->
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+              {{ form.notify_comments }}
+              <label for="id_notify_comments" style="font-size: 0.875rem; font-weight: 600; color: var(--navy-dark); cursor: pointer; margin: 0;">
+                💬 Comments & Replies
+              </label>
+            </div>
+
+            <!-- Communities -->
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+              {{ form.notify_communities }}
+              <label for="id_notify_communities" style="font-size: 0.875rem; font-weight: 600; color: var(--navy-dark); cursor: pointer; margin: 0;">
+                🌐 Community Discussions
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scheduled Quiet Hours -->
+        <div style="padding: 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: flex-start; gap: 0.85rem; margin-bottom: 0.75rem;">
+            {{ form.quiet_hours_enabled }}
+            <div style="flex: 1;">
+              <label for="id_quiet_hours_enabled" style="font-weight: 700; font-size: 0.95rem; color: var(--navy-dark); cursor: pointer; display: block;">
+                Enable Scheduled Quiet Hours
+              </label>
+              <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Automatically silence all notifications during your rest or focused work hours.
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">
+            <div>
+              <label for="id_quiet_hours_start" style="font-size: 0.825rem; font-weight: 600; color: var(--navy-dark); display: block; margin-bottom: 0.25rem;">
+                Quiet Hours Start (e.g., 22:00)
+              </label>
+              {{ form.quiet_hours_start }}
+            </div>
+            <div>
+              <label for="id_quiet_hours_end" style="font-size: 0.825rem; font-weight: 600; color: var(--navy-dark); display: block; margin-bottom: 0.25rem;">
+                Quiet Hours End (e.g., 08:00)
+              </label>
+              {{ form.quiet_hours_end }}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Submit Button -->
+      <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+        <button type="submit" class="btn btn-primary" id="btn-save-privacy-settings">
+          💾 Save Privacy & Wellbeing Settings
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- Section 3: Topic Preferences & Muted Topics -->
+  <div class="sidebar-card" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.25rem;">🏷️</span>
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--navy-dark); margin: 0;">Muted Topics & Feed Preferences</h2>
+      </div>
+      {% if muted_topics %}
+      <form action="{% url 'posts:reset_feed_preferences' %}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary btn-sm" id="btn-reset-topics" title="Reset all muted topics">
+          Reset All Muted Topics
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+      Posts tagged with muted topics are automatically filtered out from your Discover feed.
+    </div>
+
+    {% if muted_topics %}
+      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        {% for topic in muted_topics %}
+          <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg-subtle); padding: 0.35rem 0.75rem; border-radius: var(--radius-full); border: 1px solid var(--border-color); font-size: 0.85rem; font-weight: 600;">
+            <span>#{{ topic }}</span>
+            <form action="{% url 'posts:unmute_topic' %}" method="post" style="display:inline; margin:0;">
+              {% csrf_token %}
+              <input type="hidden" name="topic" value="{{ topic }}">
+              <button type="submit" style="background:none; border:none; color: var(--text-muted); cursor: pointer; padding: 0; line-height: 1;" title="Unmute #{{ topic }}">
+                ✕
+              </button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="padding: 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); text-align: center; color: var(--text-muted); font-size: 0.875rem;">
+        No topics are currently muted. You can mute topics directly from any post or feed card.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Section 4: Muted & Blocked Accounts -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+    
+    <!-- Muted Accounts -->
+    <div class="sidebar-card">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+        <span style="font-size: 1.15rem;">🔇</span>
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--navy-dark); margin: 0;">Muted Accounts</h3>
+      </div>
+      <div style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Posts from muted accounts are hidden from your feeds without blocking or alerting the user.
+      </div>
+
+      {% if muted_records %}
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 240px; overflow-y: auto;">
+          {% for record in muted_records %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+              <a href="{% url 'accounts:profile_detail' username=record.muted.username %}" style="text-decoration: none; color: var(--navy-dark); font-weight: 600; font-size: 0.875rem;">
+                @{{ record.muted.username }}
+              </a>
+              <form action="{% url 'social:mute_toggle' username=record.muted.username %}" method="post" style="display:inline; margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.775rem; padding: 0.25rem 0.5rem;">
+                  Unmute
+                </button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md); text-align: center; color: var(--text-muted); font-size: 0.825rem;">
+          You have not muted any accounts.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Blocked Accounts -->
+    <div class="sidebar-card">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+        <span style="font-size: 1.15rem;">🚫</span>
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--navy-dark); margin: 0;">Blocked Accounts</h3>
+      </div>
+      <div style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Blocked users cannot view your profile, see your posts, or interact with your content.
+      </div>
+
+      {% if blocked_records %}
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 240px; overflow-y: auto;">
+          {% for record in blocked_records %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+              <a href="{% url 'accounts:profile_detail' username=record.blocked.username %}" style="text-decoration: none; color: var(--navy-dark); font-weight: 600; font-size: 0.875rem;">
+                @{{ record.blocked.username }}
+              </a>
+              <form action="{% url 'social:block_toggle' username=record.blocked.username %}" method="post" style="display:inline; margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.775rem; padding: 0.25rem 0.5rem;">
+                  Unblock
+                </button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-md); text-align: center; color: var(--text-muted); font-size: 0.825rem;">
+          You have not blocked any accounts.
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Section 5: Data Ownership & Danger Zone -->
+  <div class="sidebar-card" style="border-left: 4px solid var(--primary-color);">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+      <span style="font-size: 1.25rem;">📦</span>
+      <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--navy-dark); margin: 0;">Data Ownership & Account Rights</h2>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+      
+      <!-- Export Data Card -->
+      <div style="padding: 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <h3 style="font-size: 1rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 0.35rem;">
+            Export Your Personal Data
+          </h3>
+          <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5;">
+            Download an authenticated, machine-readable JSON archive containing your profile, posts, comments, follower graphs, saved bookmarks, and privacy configurations. Sensitive credentials like passwords and secret keys are strictly excluded.
+          </p>
+        </div>
+        <div>
+          <a href="{% url 'accounts:data_export' %}" class="btn btn-secondary" id="btn-download-export" style="display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600;">
+            <span>📥</span> Download Data Archive (.JSON)
+          </a>
+        </div>
+      </div>
+
+      <!-- Delete Account Card -->
+      <div style="padding: 1rem; background: #fff5f5; border: 1px solid #fed7d7; border-radius: var(--radius-md); display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <h3 style="font-size: 1rem; font-weight: 700; color: #c53030; margin-bottom: 0.35rem;">
+            Delete Account (Danger Zone)
+          </h3>
+          <p style="font-size: 0.825rem; color: #742a2a; margin-bottom: 1rem; line-height: 1.5;">
+            Permanently delete your ConnectSphere profile, posts, comments, media, and notification records. This action cannot be reversed. Community discussion hubs you created will remain available with creator set to null.
+          </p>
+        </div>
+        <div>
+          <a href="{% url 'accounts:account_delete' %}" class="btn btn-secondary" id="btn-delete-account-entry" style="color: #c53030; border-color: #feb2b2; background: #fff; font-weight: 600;">
+            ⚠️ Proceed to Account Deletion
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

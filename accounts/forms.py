@@ -90,3 +90,73 @@ class ProfileEditForm(forms.ModelForm):
         return val
 
 
+class PrivacySettingsForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = [
+            'is_private',
+            'default_post_audience',
+            'default_feed_mode',
+            'low_bandwidth',
+            'notify_follows',
+            'notify_likes',
+            'notify_comments',
+            'notify_communities',
+            'notifications_paused',
+            'quiet_hours_enabled',
+            'quiet_hours_start',
+            'quiet_hours_end',
+        ]
+        widgets = {
+            'is_private': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'default_post_audience': forms.Select(attrs={'class': 'form-control'}),
+            'default_feed_mode': forms.Select(attrs={'class': 'form-control'}),
+            'low_bandwidth': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'notify_follows': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'notify_likes': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'notify_comments': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'notify_communities': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'notifications_paused': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'quiet_hours_enabled': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'quiet_hours_start': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+            'quiet_hours_end': forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}),
+        }
+
+
+class AccountDeleteForm(forms.Form):
+    confirmation_username = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'placeholder': 'Type your username to confirm', 'class': 'form-control'}),
+        label="Confirm Your Username"
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={'placeholder': 'Enter your password', 'class': 'form-control'}),
+        required=True,
+        label="Password"
+    )
+
+    confirm_permanent_loss = forms.BooleanField(
+        required=True,
+        label="I understand that account deletion is permanent and cannot be undone.",
+        widget=forms.CheckboxInput(attrs={'class': 'form-checkbox'})
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_confirmation_username(self):
+        entered = self.cleaned_data.get('confirmation_username')
+        if not self.user or entered != self.user.username:
+            raise ValidationError("The username entered does not match your account username.")
+        return entered
+
+    def clean_password(self):
+        pwd = self.cleaned_data.get('password')
+        if not self.user or not self.user.check_password(pwd):
+            raise ValidationError("Incorrect password. Please verify and try again.")
+        return pwd
+
+
+

@@ -140,8 +140,11 @@
         </div>
 
         <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 140px;">
+          <div style="flex: 1; min-width: 130px;">
             {{ post_form.topic }}
+          </div>
+          <div style="flex: 1; min-width: 130px;">
+            {{ post_form.audience }}
           </div>
           {% if post_form.community.field.queryset.exists %}
             <div style="flex: 1; min-width: 160px;">
