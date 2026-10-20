@@ -59,6 +59,26 @@ class Phase5ServerSideUploadCeilingTests(TestCase):
         self.assertEqual(response.status_code, 413)
         self.assertIn(b"Maximum allowed upload size is 5MB", response.content)
 
+    def test_middleware_handles_malformed_content_length(self):
+        """MaxUploadSizeMiddleware handles malformed or non-numeric Content-Length gracefully."""
+        client = Client()
+        response = client.post(
+            reverse('accounts:login'),
+            data={'username': 'test', 'password': 'pwd'},
+            CONTENT_LENGTH='malformed_non_integer'
+        )
+        self.assertIn(response.status_code, [200, 302])
+
+    def test_middleware_allows_normal_form_submission(self):
+        """MaxUploadSizeMiddleware allows normal form submissions with small Content-Length."""
+        client = Client()
+        response = client.post(
+            reverse('accounts:login'),
+            data={'username': 'test', 'password': 'pwd'},
+            CONTENT_LENGTH='128'
+        )
+        self.assertNotEqual(response.status_code, 413)
+
     def test_post_image_validator_rejects_over_5mb(self):
         """validate_post_image raises ValidationError for files > 5MB."""
         large_content = b'0' * (5 * 1024 * 1024 + 10)
