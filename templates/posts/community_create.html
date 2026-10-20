@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Topic Community - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-auth" style="max-width: 620px;">
+  <div class="sidebar-card">
+    <div style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+      <a href="{% url 'posts:community_list' %}" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none;">
+        &larr; Back to Communities
+      </a>
+      <h1 style="font-size: 1.5rem; color: var(--navy-dark); font-weight: 700; margin-top: 0.5rem;">
+        Create a Topic Community
+      </h1>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">
+        Establish a dedicated space for peer discussions, knowledge sharing, and topic streams.
+      </p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="community-create-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="id_name" class="form-label">Community Name *</label>
+        {{ form.name }}
+        {% if form.name.errors %}
+          <div class="field-error" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">
+            {{ form.name.errors.0 }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_slug" class="form-label">URL Identifier (Slug) *</label>
+        {{ form.slug }}
+        <small style="color: var(--text-muted); font-size: 0.775rem;">
+          This will form your community URL: <code>/communities/your-slug/</code>
+        </small>
+        {% if form.slug.errors %}
+          <div class="field-error" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">
+            {{ form.slug.errors.0 }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_topic" class="form-label">Primary Topic Area *</label>
+        {{ form.topic }}
+        {% if form.topic.errors %}
+          <div class="field-error" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">
+            {{ form.topic.errors.0 }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_description" class="form-label">Description & Community Norms *</label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <div class="field-error" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">
+            {{ form.description.errors.0 }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_icon" class="form-label">Community Icon (Optional)</label>
+        {{ form.icon }}
+        <small style="color: var(--text-muted); font-size: 0.775rem;">
+          Square icon under 2MB (JPG, PNG, WebP).
+        </small>
+        {% if form.icon.errors %}
+          <div class="field-error" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">
+            {{ form.icon.errors.0 }}
+          </div>
+        {% endif %}
+      </div>
+
+      {% if form.non_field_errors %}
+        <div style="background-color: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); border-radius: var(--radius-md); padding: 0.75rem; margin-bottom: 1rem; color: var(--danger); font-size: 0.85rem;">
+          {% for err in form.non_field_errors %}
+            <div>⚠️ {{ err }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; align-items: center;">
+        <button type="submit" class="btn btn-primary" id="btn-submit-community">
+          Create Community
+        </button>
+        <a href="{% url 'posts:community_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -28,8 +28,94 @@ def validate_post_image(file):
 
 
 
+def validate_community_icon(file):
+    """Ensure community icons are under 2MB, valid image extensions, and real image binary data."""
+    max_size = 2 * 1024 * 1024
+    if file.size > max_size:
+        raise ValidationError("Community icon file size cannot exceed 2MB.")
+    
+    ext = os.path.splitext(file.name)[1].lower()
+    valid_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
+    if ext not in valid_extensions:
+        raise ValidationError("Unsupported file format. Please upload JPG, PNG, GIF, or WebP.")
+
+    try:
+        from PIL import Image
+        img = Image.open(file)
+        img.verify()
+        if hasattr(file, 'seek'):
+            file.seek(0)
+    except Exception:
+        raise ValidationError("The uploaded file is not a valid or readable image.")
+
+
+class Community(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    slug = models.SlugField(max_length=100, unique=True, db_index=True)
+    description = models.TextField(max_length=600)
+    topic = models.CharField(max_length=50, db_index=True)
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_communities')
+    icon = models.ImageField(upload_to='communities/%Y/%m/', blank=True, null=True, validators=[validate_community_icon])
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['slug']),
+            models.Index(fields=['topic']),
+        ]
+
+    def __str__(self):
+        return f"c/{self.slug} - {self.name}"
+
+    @property
+    def members_count(self):
+        return self.memberships.count()
+
+    @property
+    def posts_count(self):
+        return self.posts.count()
+
+    def is_member(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        return self.memberships.filter(user=user).exists()
+
+    def is_moderator_or_creator(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        if user == self.creator or user.is_staff:
+            return True
+        return self.memberships.filter(user=user, role__in=['moderator', 'admin']).exists()
+
+
+class CommunityMembership(models.Model):
+    ROLE_CHOICES = [
+        ('member', 'Member'),
+        ('moderator', 'Moderator'),
+        ('admin', 'Admin'),
+    ]
+    community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_memberships')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['community', 'user'], name='unique_community_membership')
+        ]
+        indexes = [
+            models.Index(fields=['community', 'user']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} in {self.community.slug} ({self.role})"
+
+
 class Post(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posts')
+    community = models.ForeignKey(Community, on_delete=models.SET_NULL, null=True, blank=True, related_name='posts')
+    topic = models.CharField(max_length=50, blank=True, default='', db_index=True)
     content = models.TextField(max_length=2000, blank=True, default='')
     image = models.ImageField(upload_to='posts/%Y/%m/', blank=True, null=True, validators=[validate_post_image])
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -75,6 +161,21 @@ class Post(models.Model):
         if not user or not user.is_authenticated:
             return False
         return self.bookmarked_by.filter(user=user).exists()
+
+    def get_recommendation_reason(self, user=None, feed_mode='discover', topic_filter=None):
+        """Transparent, explainable reason for post inclusion."""
+        if self.community:
+            return f"c/{self.community.slug}"
+        if topic_filter and self.topic and self.topic.lower() == topic_filter.lower():
+            return f"Topic #{self.topic}"
+        if user and user.is_authenticated:
+            if self.author == user:
+                return "Your post"
+            if user.following_set.filter(following=self.author).exists():
+                return f"Followed creator @{self.author.username}"
+        if self.topic:
+            return f"Topic #{self.topic}"
+        return "Public Discover feed"
 
 
 class Like(models.Model):

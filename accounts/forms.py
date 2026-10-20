@@ -58,9 +58,15 @@ class UserRegistrationForm(forms.ModelForm):
 
 
 class ProfileEditForm(forms.ModelForm):
+    default_feed_mode = forms.ChoiceField(
+        choices=[('following', 'Following'), ('discover', 'Discover')],
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
     class Meta:
         model = Profile
-        fields = ['display_name', 'bio', 'avatar', 'is_private', 'low_bandwidth']
+        fields = ['display_name', 'bio', 'avatar', 'is_private', 'low_bandwidth', 'default_feed_mode']
         widgets = {
             'display_name': forms.TextInput(attrs={'placeholder': 'Your display name', 'class': 'form-control'}),
             'bio': forms.Textarea(attrs={'placeholder': 'Tell the community about yourself...', 'rows': 4, 'class': 'form-control'}),
@@ -74,4 +80,13 @@ class ProfileEditForm(forms.ModelForm):
             'avatar': 'Profile Avatar',
             'is_private': 'Private Account (Only followers can view your posts)',
             'low_bandwidth': 'Low-Bandwidth Mode (Disable animations and heavy visual effects)',
+            'default_feed_mode': 'Default Feed View (Preferred landing stream)',
         }
+
+    def clean_default_feed_mode(self):
+        val = self.cleaned_data.get('default_feed_mode')
+        if not val or val not in ['following', 'discover']:
+            return self.instance.default_feed_mode or 'following'
+        return val
+
+

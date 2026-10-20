@@ -65,6 +65,16 @@
           <span>Saved</span>
         </a>
 
+        <a href="{% url 'posts:community_list' %}" class="nav-link {% if 'community' in request.resolver_match.url_name %}active{% endif %}" id="nav-communities">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Communities</span>
+        </a>
+
         <a href="{% url 'notifications:list' %}" class="nav-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}" id="nav-notifications">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>

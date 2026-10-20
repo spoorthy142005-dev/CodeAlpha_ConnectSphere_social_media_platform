@@ -5,7 +5,7 @@
 {% block content %}
 <div class="app-layout app-layout-feed">
 
-  <!-- Left Sidebar: Profile Summary -->
+  <!-- Left Sidebar: Profile Summary & Feed Intelligence -->
   <aside class="sidebar-nav">
     <div class="sidebar-card">
       <div class="sidebar-profile-snippet">
@@ -40,22 +40,82 @@
       </div>
     </div>
 
+    <!-- Navigation Shortcuts -->
     <div class="sidebar-card" style="margin-top: 0.75rem;">
       <nav style="display: flex; flex-direction: column; gap: 0.35rem;">
-        <a href="{% url 'posts:feed' %}?mode=following" class="nav-link {% if feed_mode == 'following' %}active{% endif %}">
+        <a href="{% url 'posts:feed' %}?mode=following" class="nav-link {% if feed_mode == 'following' and not topic_filter %}active{% endif %}">
           <span>👥</span> Following Feed
         </a>
-        <a href="{% url 'posts:feed' %}?mode=discover" class="nav-link {% if feed_mode == 'discover' %}active{% endif %}">
+        <a href="{% url 'posts:feed' %}?mode=discover" class="nav-link {% if feed_mode == 'discover' and not topic_filter %}active{% endif %}">
           <span>🌐</span> Discover Feed
+        </a>
+        <a href="{% url 'posts:community_list' %}" class="nav-link">
+          <span>🏛️</span> Topic Communities
         </a>
         <a href="{% url 'social:saved_posts' %}" class="nav-link">
           <span>📑</span> Saved Bookmarks
         </a>
         <a href="{% url 'accounts:profile_edit' %}" class="nav-link">
-          <span>⚙️</span> Edit Profile & Settings
+          <span>⚙️</span> Feed Preferences & Settings
         </a>
       </nav>
     </div>
+
+    <!-- User-Controlled Feed Intelligence Card -->
+    <div class="sidebar-card" style="margin-top: 0.75rem;">
+      <h3 style="font-size: 0.85rem; font-weight: 700; color: var(--navy-dark); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+        Feed Intelligence
+      </h3>
+      <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.75rem;">
+        Default stream: <strong>{{ request.user.profile.get_default_feed_mode_display|default:'Following' }}</strong>
+      </div>
+
+      {% if user_muted_topics %}
+        <div style="margin-bottom: 0.75rem;">
+          <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">
+            Muted Topics (Less Like This):
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+            {% for mt in user_muted_topics %}
+              <form action="{% url 'posts:unmute_topic' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="topic" value="{{ mt }}">
+                <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.72rem; padding: 0.15rem 0.4rem;" title="Unmute topic">
+                  #{{ mt }} ✕
+                </button>
+              </form>
+            {% endfor %}
+          </div>
+        </div>
+
+        <form action="{% url 'posts:reset_feed_preferences' %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary btn-sm btn-block" style="font-size: 0.75rem;" id="btn-reset-feed">
+            ↺ Reset Feed Preferences
+          </button>
+        </form>
+      {% else %}
+        <p style="font-size: 0.775rem; color: var(--text-muted); margin: 0;">
+          All topics active. Click "Less like this" on any post in Discover to tune your feed.
+        </p>
+      {% endif %}
+    </div>
+
+    <!-- Joined Communities Widget -->
+    {% if joined_communities %}
+      <div class="sidebar-card" style="margin-top: 0.75rem;">
+        <h3 style="font-size: 0.85rem; font-weight: 700; color: var(--navy-dark); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+          Your Communities
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+          {% for comm in joined_communities %}
+            <a href="{% url 'posts:community_detail' slug=comm.slug %}" class="nav-link" style="padding: 0.35rem 0.5rem; font-size: 0.825rem;">
+              <span>c/{{ comm.slug }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
   </aside>
 
   <!-- Center Feed -->
@@ -79,7 +139,18 @@
           </div>
         </div>
 
-        <div class="composer-footer">
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 140px;">
+            {{ post_form.topic }}
+          </div>
+          {% if post_form.community.field.queryset.exists %}
+            <div style="flex: 1; min-width: 160px;">
+              {{ post_form.community }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="composer-footer" style="margin-top: 0.75rem;">
           <label class="image-upload-btn" title="Add Image to Post">
             <span>📷 Attach Image</span>
             {{ post_form.image }}
@@ -93,13 +164,36 @@
 
     <!-- Feed Switcher Tabs -->
     <nav class="feed-tabs" role="tablist" aria-label="Feed mode">
-      <a href="{% url 'posts:feed' %}?mode=following" class="feed-tab {% if feed_mode == 'following' %}active{% endif %}" role="tab" id="tab-following">
+      <a href="{% url 'posts:feed' %}?mode=following{% if topic_filter %}&topic={{ topic_filter }}{% endif %}" class="feed-tab {% if feed_mode == 'following' %}active{% endif %}" role="tab" id="tab-following">
         👥 Following
       </a>
-      <a href="{% url 'posts:feed' %}?mode=discover" class="feed-tab {% if feed_mode == 'discover' %}active{% endif %}" role="tab" id="tab-discover">
+      <a href="{% url 'posts:feed' %}?mode=discover{% if topic_filter %}&topic={{ topic_filter }}{% endif %}" class="feed-tab {% if feed_mode == 'discover' %}active{% endif %}" role="tab" id="tab-discover">
         🌐 Discover
       </a>
     </nav>
+
+    <!-- Topic Communities & Categorical Filter Chips -->
+    <div style="margin: -0.5rem 0 1rem; display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.25rem;" aria-label="Topic filters">
+      <a href="{% url 'posts:feed' %}?mode={{ feed_mode }}" class="btn btn-sm {% if not topic_filter %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.78rem; border-radius: 9999px; white-space: nowrap;">
+        All Topics
+      </a>
+      {% for t_slug, t_label in popular_topics %}
+        <a href="{% url 'posts:feed' %}?mode={{ feed_mode }}&topic={{ t_slug }}" class="btn btn-sm {% if topic_filter == t_slug %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.78rem; border-radius: 9999px; white-space: nowrap;">
+          #{{ t_slug }}
+        </a>
+      {% endfor %}
+    </div>
+
+    {% if topic_filter %}
+      <div style="background-color: var(--bg-surface); padding: 0.6rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.85rem; color: var(--navy-dark); font-weight: 600;">
+          Filtering by topic: <span style="color: var(--primary);">#{{ topic_filter }}</span>
+        </span>
+        <a href="{% url 'posts:feed' %}?mode={{ feed_mode }}" style="font-size: 0.8rem; color: var(--text-muted);">
+          Clear filter ✕
+        </a>
+      </div>
+    {% endif %}
 
     <!-- Post Stream List -->
     {% if page_obj %}
@@ -119,26 +213,41 @@
                   {{ post.author.profile.get_display_name }}
                 </a>
                 <span class="post-author-handle">@{{ post.author.username }}</span>
+                
                 <div class="post-meta">
                   <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|timesince }} ago</time>
                   {% if post.is_edited %}
                     <span class="edited-badge">· (edited)</span>
                   {% endif %}
+                  {% if post.community %}
+                    · <a href="{% url 'posts:community_detail' slug=post.community.slug %}" style="color: var(--primary); font-weight: 600;">c/{{ post.community.slug }}</a>
+                  {% endif %}
+                  {% if post.topic %}
+                    · <a href="{% url 'posts:feed' %}?mode={{ feed_mode }}&topic={{ post.topic }}" style="color: var(--text-muted);">#{{ post.topic }}</a>
+                  {% endif %}
                 </div>
               </div>
             </div>
 
-            {% if post.author == request.user %}
-              <div style="display: flex; gap: 0.35rem;">
+            <div style="display: flex; gap: 0.35rem; align-items: center;">
+              {% if post.author == request.user %}
                 <a href="{% url 'posts:post_edit' post_id=post.id %}" class="btn btn-secondary btn-sm" title="Edit post">Edit</a>
                 <a href="{% url 'posts:post_delete' post_id=post.id %}" class="btn btn-outline-danger btn-sm" title="Delete post">Delete</a>
-              </div>
-            {% else %}
-              <a href="{% url 'moderation:report_post' post_id=post.id %}" class="action-btn" title="Report post" style="color: var(--text-light);">
-                🚩
-              </a>
-            {% endif %}
+              {% else %}
+                <a href="{% url 'moderation:report_post' post_id=post.id %}" class="action-btn" title="Report post" style="color: var(--text-light);">
+                  🚩
+                </a>
+              {% endif %}
+            </div>
           </div>
+
+          <!-- Transparent Recommendation Reason Badge -->
+          {% if post.recommendation_reason %}
+            <div style="margin: 0.25rem 0 0.5rem; display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-muted);">
+              <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: var(--primary);"></span>
+              <span>Reason: {{ post.recommendation_reason }}</span>
+            </div>
+          {% endif %}
 
           {% if post.content %}
             <div class="post-content">{{ post.content }}</div>
@@ -168,15 +277,28 @@
               </a>
             </div>
 
-            <button 
-              class="action-btn btn-bookmark-ajax" 
-              data-post-id="{{ post.id }}"
-              id="btn-bookmark-{{ post.id }}"
-              aria-label="Bookmark post"
-            >
-              <span class="bookmark-icon">📑</span>
-              <span class="bookmark-label">Save</span>
-            </button>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              {% if post.topic and feed_mode == 'discover' %}
+                <form action="{% url 'posts:mute_topic' %}" method="post" style="display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="topic" value="{{ post.topic }}">
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button type="submit" class="action-btn" title="Show less content from #{{ post.topic }}" style="font-size: 0.78rem;">
+                    <span>👎 Less like this</span>
+                  </button>
+                </form>
+              {% endif %}
+
+              <button 
+                class="action-btn btn-bookmark-ajax" 
+                data-post-id="{{ post.id }}"
+                id="btn-bookmark-{{ post.id }}"
+                aria-label="Bookmark post"
+              >
+                <span class="bookmark-icon">📑</span>
+                <span class="bookmark-label">Save</span>
+              </button>
+            </div>
           </div>
         </article>
       {% endfor %}
@@ -185,24 +307,31 @@
       {% if page_obj.has_other_pages %}
         <nav class="pagination" aria-label="Feed pagination">
           {% if page_obj.has_previous %}
-            <a href="?mode={{ feed_mode }}&page={{ page_obj.previous_page_number }}" class="page-link">&laquo; Newer</a>
+            <a href="?mode={{ feed_mode }}{% if topic_filter %}&topic={{ topic_filter }}{% endif %}&page={{ page_obj.previous_page_number }}" class="page-link">&laquo; Newer</a>
           {% endif %}
 
           <span class="page-link active">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
 
           {% if page_obj.has_next %}
-            <a href="?mode={{ feed_mode }}&page={{ page_obj.next_page_number }}" class="page-link">Older &raquo;</a>
+            <a href="?mode={{ feed_mode }}{% if topic_filter %}&topic={{ topic_filter }}{% endif %}&page={{ page_obj.next_page_number }}" class="page-link">Older &raquo;</a>
           {% endif %}
         </nav>
       {% endif %}
 
     {% else %}
       <div class="empty-state">
-        {% if feed_mode == 'following' %}
+        {% if topic_filter %}
+          <div class="empty-state-icon">🏷️</div>
+          <h3 class="empty-state-title">No posts for #{{ topic_filter }}</h3>
+          <p class="empty-state-text">
+            Be the first to share an idea, thought, or project under this topic!
+          </p>
+          <a href="{% url 'posts:feed' %}?mode={{ feed_mode }}" class="btn btn-primary btn-sm">Clear Topic Filter</a>
+        {% elif feed_mode == 'following' %}
           <div class="empty-state-icon">👥</div>
           <h3 class="empty-state-title">Your feed is quiet</h3>
           <p class="empty-state-text">
-            You're not following anyone who has posted recently. Check out the Discover tab to find people to follow!
+            You're not following anyone who has posted recently. Check out the Discover tab or join a topic community!
           </p>
           <a href="{% url 'posts:feed' %}?mode=discover" class="btn btn-primary btn-sm">Explore Discover Feed</a>
         {% else %}
@@ -217,9 +346,26 @@
 
   </section>
 
-  <!-- Right Sidebar -->
+  <!-- Right Sidebar: Discover & Community Spotlight -->
   <aside class="sidebar-right">
     <div class="sidebar-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--navy-dark); margin: 0;">
+          🏛️ Topic Communities
+        </h3>
+        <a href="{% url 'posts:community_create' %}" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
+          + Create
+        </a>
+      </div>
+      <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Join dedicated hubs around technology, design, science, and creativity.
+      </p>
+      <a href="{% url 'posts:community_list' %}" class="btn btn-secondary btn-sm btn-block">
+        Explore All Communities
+      </a>
+    </div>
+
+    <div class="sidebar-card" style="margin-top: 1rem;">
       <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 0.75rem;">
         🌟 Discover People
       </h3>

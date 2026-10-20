@@ -42,8 +42,38 @@ class Profile(models.Model):
         default=False,
         help_text="Enable low-bandwidth mode to reduce animations and image preloading."
     )
+    default_feed_mode = models.CharField(
+        max_length=20,
+        choices=[('following', 'Following'), ('discover', 'Discover')],
+        default='following',
+        blank=True,
+        help_text="Default feed mode when accessing ConnectSphere."
+    )
+    muted_topics = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Topics the user marked with 'Less like this' to reduce in Discover feed."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def mute_topic(self, topic):
+        t = (topic or '').strip().lower()
+        if t and t not in self.muted_topics:
+            self.muted_topics.append(t)
+            self.save(update_fields=['muted_topics'])
+
+    def unmute_topic(self, topic):
+        t = (topic or '').strip().lower()
+        if t in self.muted_topics:
+            self.muted_topics.remove(t)
+            self.save(update_fields=['muted_topics'])
+
+    def reset_feed_preferences(self):
+        self.muted_topics = []
+        self.default_feed_mode = 'following'
+        self.save(update_fields=['muted_topics', 'default_feed_mode'])
+
 
     class Meta:
         indexes = [

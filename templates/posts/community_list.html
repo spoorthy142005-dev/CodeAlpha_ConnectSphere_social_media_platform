@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}Topic Communities - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card" style="margin-bottom: 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+      <div>
+        <h1 style="font-size: 1.4rem; color: var(--navy-dark); font-weight: 700; margin: 0;">Topic Communities</h1>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">
+          Connect around specialized interests, engineering, design, and knowledge exchange.
+        </p>
+      </div>
+      <a href="{% url 'posts:community_create' %}" class="btn btn-primary btn-sm" id="btn-create-community">
+        + Create Community
+      </a>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+      <form method="get" action="{% url 'posts:community_list' %}" style="display: flex; gap: 0.5rem; flex: 1; min-width: 200px;">
+        <input 
+          type="search" 
+          name="q" 
+          value="{{ query }}" 
+          placeholder="Search by community name or keywords..." 
+          class="form-control"
+          style="font-size: 0.85rem;"
+          id="input-community-search"
+        >
+        <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+      </form>
+
+      <div style="display: flex; gap: 0.35rem; overflow-x: auto; padding: 0.25rem 0;">
+        <a href="{% url 'posts:community_list' %}{% if query %}?q={{ query }}{% endif %}" class="btn btn-sm {% if not topic_filter %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.75rem; border-radius: 9999px;">
+          All
+        </a>
+        {% for t_slug, t_label in popular_topics %}
+          <a href="{% url 'posts:community_list' %}?topic={{ t_slug }}{% if query %}&q={{ query }}{% endif %}" class="btn btn-sm {% if topic_filter == t_slug %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.75rem; border-radius: 9999px;">
+            #{{ t_slug }}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Communities List Grid -->
+  {% if communities %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+      {% for comm in communities %}
+        <div class="sidebar-card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 3px solid var(--primary);">
+          <div>
+            <div style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 0.75rem;">
+              {% if comm.icon %}
+                <img src="{{ comm.icon.url }}" alt="{{ comm.name }}" style="width: 48px; height: 48px; border-radius: var(--radius-md); object-fit: cover; border: 1px solid var(--border-color);">
+              {% else %}
+                <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--primary), var(--brand-aqua)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.1rem;">
+                  c/
+                </div>
+              {% endif %}
+              <div style="flex: 1; min-width: 0;">
+                <h2 style="font-size: 1rem; font-weight: 700; margin: 0; line-height: 1.3;">
+                  <a href="{% url 'posts:community_detail' slug=comm.slug %}" style="color: var(--navy-dark);">
+                    {{ comm.name }}
+                  </a>
+                </h2>
+                <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">
+                  c/{{ comm.slug }}
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                  <span class="btn btn-sm" style="font-size: 0.7rem; padding: 0.1rem 0.35rem; background-color: var(--bg-subtle);">
+                    #{{ comm.topic }}
+                  </span>
+                  <span style="font-size: 0.75rem; color: var(--text-muted); align-self: center;">
+                    {{ comm.members_count }} member{{ comm.members_count|pluralize }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p style="font-size: 0.825rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+              {{ comm.description|truncatewords:25 }}
+            </p>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+            <a href="{% url 'posts:community_detail' slug=comm.slug %}" class="btn btn-secondary btn-sm">
+              View Hub
+            </a>
+
+            <form action="{% url 'posts:community_join_toggle' slug=comm.slug %}" method="post">
+              {% csrf_token %}
+              {% if comm.id in joined_ids %}
+                <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--text-muted);">
+                  ✓ Joined
+                </button>
+              {% else %}
+                <button type="submit" class="btn btn-primary btn-sm">
+                  + Join
+                </button>
+              {% endif %}
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🏛️</div>
+      <h3 class="empty-state-title">No communities found</h3>
+      <p class="empty-state-text">
+        {% if query or topic_filter %}
+          No communities match your search criteria. Try a different topic or keyword!
+        {% else %}
+          Be the pioneer! Create the very first topic community on ConnectSphere.
+        {% endif %}
+      </p>
+      <a href="{% url 'posts:community_create' %}" class="btn btn-primary btn-sm">Create New Community</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

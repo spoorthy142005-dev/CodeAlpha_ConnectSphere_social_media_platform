@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+
+{% block title %}c/{{ community.slug }} - {{ community.name }} - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-feed">
+
+  <!-- Left Sidebar / Community Info -->
+  <aside class="sidebar-nav">
+    <div class="sidebar-card">
+      <div style="text-align: center; margin-bottom: 1rem;">
+        {% if community.icon %}
+          <img src="{{ community.icon.url }}" alt="{{ community.name }}" style="width: 72px; height: 72px; border-radius: var(--radius-md); object-fit: cover; margin: 0 auto 0.75rem; border: 2px solid var(--border-color);">
+        {% else %}
+          <div style="width: 72px; height: 72px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--primary), var(--brand-aqua)); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.5rem; margin: 0 auto 0.75rem;">
+            c/
+          </div>
+        {% endif %}
+        <h1 style="font-size: 1.25rem; font-weight: 700; color: var(--navy-dark); margin: 0;">
+          {{ community.name }}
+        </h1>
+        <div style="color: var(--primary); font-weight: 600; font-size: 0.875rem; margin-top: 0.2rem;">
+          c/{{ community.slug }}
+        </div>
+        <div style="margin-top: 0.5rem;">
+          <span class="btn btn-sm" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; background-color: var(--bg-subtle);">
+            #{{ community.topic }}
+          </span>
+        </div>
+      </div>
+
+      <div class="sidebar-stat-grid" style="margin-bottom: 1rem;">
+        <div>
+          <div class="sidebar-stat-number">{{ community.members_count }}</div>
+          <div class="sidebar-stat-label">Members</div>
+        </div>
+        <div>
+          <div class="sidebar-stat-number">{{ community.posts_count }}</div>
+          <div class="sidebar-stat-label">Posts</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <form action="{% url 'posts:community_join_toggle' slug=community.slug %}" method="post">
+          {% csrf_token %}
+          {% if is_member %}
+            <button type="submit" class="btn btn-secondary btn-block" id="btn-community-leave">
+              ✓ Joined (Leave)
+            </button>
+          {% else %}
+            <button type="submit" class="btn btn-primary btn-block" id="btn-community-join">
+              + Join Community
+            </button>
+          {% endif %}
+        </form>
+      </div>
+
+      {% if is_moderator %}
+        <div style="background-color: var(--bg-subtle); padding: 0.5rem; border-radius: var(--radius-sm); font-size: 0.775rem; color: var(--primary); font-weight: 600; text-align: center; margin-bottom: 0.75rem;">
+          🛡️ Moderator Access Active
+        </div>
+      {% endif %}
+
+      <nav style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem;">
+        <a href="{% url 'posts:community_list' %}" class="nav-link">
+          <span>🏛️</span> Browse All Communities
+        </a>
+        <a href="{% url 'posts:feed' %}" class="nav-link">
+          <span>🏠</span> Back to Main Feed
+        </a>
+      </nav>
+    </div>
+
+    <!-- Community Rules & Creator Info -->
+    <div class="sidebar-card" style="margin-top: 0.75rem;">
+      <h3 style="font-size: 0.85rem; font-weight: 700; color: var(--navy-dark); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+        About Community
+      </h3>
+      <p style="font-size: 0.825rem; color: var(--text-main); line-height: 1.5; margin-bottom: 0.75rem;">
+        {{ community.description }}
+      </p>
+      <div style="font-size: 0.775rem; color: var(--text-muted); padding-top: 0.5rem; border-top: 1px solid var(--border-color);">
+        Created by 
+        <a href="{% url 'accounts:profile_detail' username=community.creator.username %}" style="font-weight: 600; color: var(--navy-dark);">
+          @{{ community.creator.username }}
+        </a>
+        on {{ community.created_at|date:"M d, Y" }}
+      </div>
+    </div>
+  </aside>
+
+  <!-- Center: Community Posts Stream -->
+  <section class="feed-main" role="region" aria-label="Community Stream">
+
+    <!-- Community Header Banner -->
+    <div class="sidebar-card" style="margin-bottom: 1rem; border-left: 4px solid var(--primary);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <h2 style="font-size: 1.15rem; color: var(--navy-dark); font-weight: 700; margin: 0;">
+            c/{{ community.slug }} Stream
+          </h2>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">
+            Discussions, links, and project updates shared in this community
+          </span>
+        </div>
+        <div>
+          <span class="btn btn-sm" style="font-size: 0.75rem; background-color: var(--bg-subtle);">
+            Topic: #{{ community.topic }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Post Composer (Members only) -->
+    {% if is_member %}
+      <div class="post-composer-card" style="margin-bottom: 1.25rem;">
+        <form action="{% url 'posts:post_create' %}" method="post" enctype="multipart/form-data" id="community-post-form">
+          {% csrf_token %}
+          <input type="hidden" name="community" value="{{ community.id }}">
+          <div class="composer-header">
+            {% if request.user.profile.avatar %}
+              <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.username }}" class="avatar avatar-md">
+            {% else %}
+              <div class="avatar avatar-md">{{ request.user.username|slice:":1" }}</div>
+            {% endif %}
+            <div style="flex: 1;">
+              {{ post_form.content }}
+              <div class="image-preview-container">
+                <img src="" alt="Preview" class="image-preview-img">
+              </div>
+            </div>
+          </div>
+
+          <div class="composer-footer" style="margin-top: 0.75rem;">
+            <label class="image-upload-btn" title="Add Image to Post">
+              <span>📷 Attach Image</span>
+              {{ post_form.image }}
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm" id="btn-publish-community-post">
+              Post to c/{{ community.slug }}
+            </button>
+          </div>
+        </form>
+      </div>
+    {% else %}
+      <div style="background-color: var(--bg-surface); padding: 1rem; border-radius: var(--radius-md); border: 1px dashed var(--border-color); text-align: center; margin-bottom: 1.25rem;">
+        <span style="font-size: 0.9rem; color: var(--text-muted);">
+          You must be a member to publish posts in <strong>c/{{ community.slug }}</strong>.
+        </span>
+        <form action="{% url 'posts:community_join_toggle' slug=community.slug %}" method="post" style="display:inline; margin-left: 0.5rem;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 0.25rem;">
+            + Join to Post
+          </button>
+        </form>
+      </div>
+    {% endif %}
+
+    <!-- Posts Stream -->
+    {% if page_obj %}
+      {% for post in page_obj %}
+        <article class="post-card" id="post-{{ post.id }}">
+          <div class="post-header">
+            <div class="post-author-info">
+              <a href="{% url 'accounts:profile_detail' username=post.author.username %}">
+                {% if post.author.profile.avatar %}
+                  <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="avatar avatar-md">
+                {% else %}
+                  <div class="avatar avatar-md">{{ post.author.username|slice:":1" }}</div>
+                {% endif %}
+              </a>
+              <div>
+                <a href="{% url 'accounts:profile_detail' username=post.author.username %}" class="post-author-name">
+                  {{ post.author.profile.get_display_name }}
+                </a>
+                <span class="post-author-handle">@{{ post.author.username }}</span>
+                <div class="post-meta">
+                  <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|timesince }} ago</time>
+                  {% if post.is_edited %}
+                    <span class="edited-badge">· (edited)</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.35rem; align-items: center;">
+              {% if post.author == request.user %}
+                <a href="{% url 'posts:post_edit' post_id=post.id %}" class="btn btn-secondary btn-sm" title="Edit post">Edit</a>
+                <a href="{% url 'posts:post_delete' post_id=post.id %}" class="btn btn-outline-danger btn-sm" title="Delete post">Delete</a>
+              {% elif is_moderator %}
+                <!-- Moderator Delete Control -->
+                <form action="{% url 'posts:community_post_delete' slug=community.slug post_id=post.id %}" method="post" style="display:inline;" onsubmit="return confirm('As a community moderator, are you sure you want to remove this post?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline-danger btn-sm" title="Moderator: Remove Post">
+                    Remove
+                  </button>
+                </form>
+              {% else %}
+                <a href="{% url 'moderation:report_post' post_id=post.id %}" class="action-btn" title="Report post" style="color: var(--text-light);">
+                  🚩
+                </a>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if post.content %}
+            <div class="post-content">{{ post.content }}</div>
+          {% endif %}
+
+          {% if post.image %}
+            <div class="post-image-wrapper">
+              <img src="{{ post.image.url }}" alt="Post image" class="post-image" loading="lazy">
+            </div>
+          {% endif %}
+
+          <div class="post-actions">
+            <div class="post-actions-group">
+              <button 
+                class="action-btn btn-like-ajax {% if request.user in post.likes.all %}liked{% endif %}" 
+                data-post-id="{{ post.id }}"
+                id="btn-like-{{ post.id }}"
+                aria-label="Like post"
+              >
+                <span class="like-icon">❤️</span>
+                <span class="like-count">{{ post.likes_count }}</span>
+              </button>
+
+              <a href="{% url 'posts:post_detail' post_id=post.id %}" class="action-btn" id="btn-comment-link-{{ post.id }}">
+                <span>💬</span>
+                <span>{{ post.comments_count }}</span>
+              </a>
+            </div>
+
+            <button 
+              class="action-btn btn-bookmark-ajax" 
+              data-post-id="{{ post.id }}"
+              id="btn-bookmark-{{ post.id }}"
+              aria-label="Bookmark post"
+            >
+              <span class="bookmark-icon">📑</span>
+              <span class="bookmark-label">Save</span>
+            </button>
+          </div>
+        </article>
+      {% endfor %}
+
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+        <nav class="pagination" aria-label="Community pagination">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="page-link">&laquo; Newer</a>
+          {% endif %}
+
+          <span class="page-link active">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="page-link">Older &raquo;</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">✍️</div>
+        <h3 class="empty-state-title">No posts in this community yet</h3>
+        <p class="empty-state-text">
+          Be the first member to kick off a discussion in c/{{ community.slug }}!
+        </p>
+      </div>
+    {% endif %}
+
+  </section>
+
+  <!-- Right Sidebar: Recent Members & Moderation Info -->
+  <aside class="sidebar-right">
+    <div class="sidebar-card">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 0.75rem;">
+        👥 Community Members ({{ community.members_count }})
+      </h3>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        {% for mem in recent_members %}
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <a href="{% url 'accounts:profile_detail' username=mem.user.username %}" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: inherit;">
+              {% if mem.user.profile.avatar %}
+                <img src="{{ mem.user.profile.avatar.url }}" alt="{{ mem.user.username }}" class="avatar avatar-sm">
+              {% else %}
+                <div class="avatar avatar-sm">{{ mem.user.username|slice:":1" }}</div>
+              {% endif %}
+              <div>
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--navy-dark);">
+                  {{ mem.user.profile.get_display_name }}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                  @{{ mem.user.username }}
+                </div>
+              </div>
+            </a>
+            {% if mem.role in 'admin,moderator' %}
+              <span class="btn btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem; background-color: var(--bg-subtle);">
+                {{ mem.get_role_display }}
+              </span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="sidebar-card" style="margin-top: 1rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 0.5rem;">
+        🛡️ Safety & Reporting
+      </h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.75rem;">
+        All content in this community is subject to ConnectSphere community standards.
+      </p>
+      <a href="{% url 'moderation:report_user' username=community.creator.username %}" class="btn btn-secondary btn-sm btn-block" style="font-size: 0.75rem;">
+        Report Community
+      </a>
+    </div>
+  </aside>
+
+</div>
+{% endblock %}
