@@ -217,7 +217,7 @@ All seeded demo accounts use the standard password format:
 
 ## 🧪 Automated Testing Suite
 
-The project includes 34 thorough automated test cases covering registration, authentication, permissions, CRUD ownership, duplicate constraints, feed filtering, bookmarks, blocking, and moderation.
+The project includes 36 thorough automated test cases covering registration, authentication, permissions, CRUD ownership, duplicate constraints, feed filtering, bookmarks, blocking, deep image verification, and moderation.
 
 ### Run Tests:
 ```bash
@@ -226,11 +226,11 @@ python manage.py test
 
 ### Test Results Summary:
 ```
-Ran 34 tests in 315.020s
+Ran 36 tests in 124.364s
 
 OK
 Destroying test database for alias 'default'...
-Found 34 test(s).
+Found 36 test(s).
 System check identified no issues (0 silenced).
 ```
 

@@ -1,8 +1,12 @@
+import io
+from PIL import Image
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
 from posts.models import Post, Like, Comment
 from social.models import Follow, Block
+
 
 
 class PostsAndFeedInteractionsTests(TestCase):
@@ -137,3 +141,33 @@ class PostsAndFeedInteractionsTests(TestCase):
         self.client.login(username='alice', password='Password123!')
         resp = self.client.get(reverse('posts:feed') + '?mode=discover')
         self.assertNotContains(resp, "Bob post to be blocked")
+
+    def test_valid_image_post_creation(self):
+        """User can upload a legitimate image file with their post."""
+        self.client.login(username='alice', password='Password123!')
+        f = io.BytesIO()
+        img = Image.new('RGB', (50, 50), color='green')
+        img.save(f, format='JPEG')
+        f.seek(0)
+        uploaded = SimpleUploadedFile("photo.jpg", f.read(), content_type="image/jpeg")
+
+        response = self.client.post(reverse('posts:post_create'), {
+            'content': 'A photo post from Alice',
+            'image': uploaded,
+        })
+        self.assertRedirects(response, reverse('posts:feed'))
+        post = Post.objects.filter(content='A photo post from Alice').first()
+        self.assertIsNotNone(post)
+        self.assertTrue(bool(post.image))
+
+    def test_fake_image_file_rejected(self):
+        """Corrupted/fake image disguised with .jpg extension is rejected."""
+        self.client.login(username='alice', password='Password123!')
+        fake_payload = SimpleUploadedFile("exploit.jpg", b"fake binary payload that is not an image", content_type="image/jpeg")
+        response = self.client.post(reverse('posts:post_create'), {
+            'content': 'Attempt with fake image',
+            'image': fake_payload,
+        })
+        # Post creation should fail validation and not be saved to DB
+        self.assertFalse(Post.objects.filter(content='Attempt with fake image').exists())
+

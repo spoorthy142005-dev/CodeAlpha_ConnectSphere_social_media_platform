@@ -6,7 +6,7 @@ from django.utils import timezone
 
 
 def validate_post_image(file):
-    """Ensure post images are under 5MB and valid image formats."""
+    """Ensure post images are under 5MB, valid image extensions, and real image binary data."""
     max_size = 5 * 1024 * 1024
     if file.size > max_size:
         raise ValidationError("Image file size cannot exceed 5MB.")
@@ -15,6 +15,17 @@ def validate_post_image(file):
     valid_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
     if ext not in valid_extensions:
         raise ValidationError("Unsupported file format. Please upload JPG, PNG, GIF, or WebP.")
+
+    # Deep verification: ensure file contains real image data
+    try:
+        from PIL import Image
+        img = Image.open(file)
+        img.verify()
+        if hasattr(file, 'seek'):
+            file.seek(0)
+    except Exception:
+        raise ValidationError("The uploaded file is not a valid or readable image.")
+
 
 
 class Post(models.Model):

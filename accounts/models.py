@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 
 
 def validate_avatar_file(file):
-    """Validate uploaded avatar size (<2MB) and valid extensions."""
+    """Validate uploaded avatar size (<2MB), valid extensions, and binary image validity."""
     max_size = 2 * 1024 * 1024  # 2 MB
     if file.size > max_size:
         raise ValidationError("Profile picture must be under 2MB.")
@@ -16,6 +16,17 @@ def validate_avatar_file(file):
     ext = os.path.splitext(file.name)[1].lower()
     if ext not in valid_extensions:
         raise ValidationError("Unsupported file format. Please upload JPG, PNG, GIF, or WebP.")
+
+    # Deep verification: ensure file contains real image data
+    try:
+        from PIL import Image
+        img = Image.open(file)
+        img.verify()
+        if hasattr(file, 'seek'):
+            file.seek(0)
+    except Exception:
+        raise ValidationError("The uploaded file is not a valid or readable image.")
+
 
 
 class Profile(models.Model):
