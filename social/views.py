@@ -111,7 +111,7 @@ def bookmark_toggle_view(request, post_id):
 def saved_posts_view(request):
     """View bookmarks - only accessible to the logged-in user for their own saved posts."""
     bookmarks = Bookmark.objects.filter(user=request.user).select_related('post', 'post__author', 'post__author__profile')
-    posts = [b.post for b in bookmarks]
+    posts = [b.post for b in bookmarks if b.post.is_visible_to(request.user)]
 
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')

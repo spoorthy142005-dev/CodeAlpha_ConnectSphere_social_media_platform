@@ -260,16 +260,16 @@ def data_export_view(request):
         for f in user.follower_set.select_related('follower', 'follower__profile')
     ]
 
-    # Collect bookmarks
-    bookmarks_data = [
-        {
-            'post_id': b.post_id,
-            'post_author': b.post.author.username,
-            'content_snippet': b.post.content[:100],
-            'saved_at': b.created_at.isoformat(),
-        }
-        for b in user.bookmarks.select_related('post', 'post__author')
-    ]
+    # Collect bookmarks (strictly verify post visibility to prevent leaking private/blocked content)
+    bookmarks_data = []
+    for b in user.bookmarks.select_related('post', 'post__author', 'post__author__profile').all():
+        if b.post.is_visible_to(user):
+            bookmarks_data.append({
+                'post_id': b.post_id,
+                'post_author': b.post.author.username,
+                'content_snippet': b.post.content[:100],
+                'saved_at': b.created_at.isoformat(),
+            })
 
     # Collect community memberships
     communities_data = [
@@ -352,12 +352,31 @@ def data_export_view(request):
     return response
 
 
+def revoke_all_user_sessions(user_id):
+    """
+    Purge all active sessions for a user across all devices/browsers
+    so that no lingering session tokens remain valid after account deletion.
+    """
+    from django.contrib.sessions.models import Session
+    user_id_str = str(user_id)
+    session_keys_to_delete = []
+    for s in Session.objects.filter(expire_date__gte=timezone.now()):
+        try:
+            data = s.get_decoded()
+            if data.get('_auth_user_id') == user_id_str:
+                session_keys_to_delete.append(s.session_key)
+        except Exception:
+            continue
+    if session_keys_to_delete:
+        Session.objects.filter(session_key__in=session_keys_to_delete).delete()
+
+
 @login_required
 def account_delete_view(request):
     """
     Safe account deletion workflow with authentication, username re-entry,
-    and explicit checkbox confirmation. Revokes session and removes personal data
-    while preserving shared community discussion hubs (via SET_NULL creator).
+    and explicit checkbox confirmation. Revokes all active sessions across devices
+    and permanently removes personal data while preserving shared community discussion hubs (via SET_NULL creator).
     """
     user = request.user
 
@@ -365,9 +384,11 @@ def account_delete_view(request):
         form = AccountDeleteForm(request.POST, user=user)
         if form.is_valid():
             username = user.username
+            user_id = user.id
             logout(request)
+            revoke_all_user_sessions(user_id)
             user.delete()
-            messages.info(request, f"Your account @{username} has been permanently deleted. We are sorry to see you go!")
+            messages.info(request, f"Your account @{username} has been permanently deleted and all sessions revoked. We are sorry to see you go!")
             return redirect('accounts:login')
         else:
             messages.error(request, "Account deletion failed. Please ensure all confirmation details are correct.")

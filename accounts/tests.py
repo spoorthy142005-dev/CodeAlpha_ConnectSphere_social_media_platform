@@ -269,3 +269,126 @@ class PrivacyControlCenterAndDataOwnershipTests(TestCase):
         create_notification(recipient=self.user, actor=self.user2, event_type='follow')
         # Count should still be 1 because notifications are paused
         self.assertEqual(Notification.objects.filter(recipient=self.user).count(), 1)
+
+
+class SecurityAndRegressionDeepAuditTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.alice = User.objects.create_user(username='alice', password='Password123!', email='alice@test.com')
+        self.bob = User.objects.create_user(username='bob', password='Password123!', email='bob@test.com')
+
+    def test_overnight_quiet_hours_midnight_wrap_around(self):
+        """
+        Verify quiet hours behavior when start time is later than end time (e.g., 22:00–07:00).
+        """
+        import datetime
+        from unittest.mock import patch
+
+        self.alice.profile.quiet_hours_enabled = True
+        self.alice.profile.quiet_hours_start = datetime.time(22, 0)
+        self.alice.profile.quiet_hours_end = datetime.time(7, 0)
+        self.alice.profile.save()
+
+        # 1. During quiet hours (late evening: 23:30)
+        with patch('django.utils.timezone.localtime') as mock_now:
+            mock_now.return_value = datetime.datetime(2026, 10, 20, 23, 30)
+            self.assertTrue(self.alice.profile.is_in_quiet_hours())
+            self.assertFalse(self.alice.profile.should_receive_notification('like'))
+
+        # 2. During quiet hours (early morning: 04:15)
+        with patch('django.utils.timezone.localtime') as mock_now:
+            mock_now.return_value = datetime.datetime(2026, 10, 20, 4, 15)
+            self.assertTrue(self.alice.profile.is_in_quiet_hours())
+            self.assertFalse(self.alice.profile.should_receive_notification('like'))
+
+        # 3. Outside quiet hours (afternoon: 14:00)
+        with patch('django.utils.timezone.localtime') as mock_now:
+            mock_now.return_value = datetime.datetime(2026, 10, 20, 14, 0)
+            self.assertFalse(self.alice.profile.is_in_quiet_hours())
+            self.assertTrue(self.alice.profile.should_receive_notification('like'))
+
+    def test_multi_session_revocation_on_account_deletion(self):
+        """
+        Confirm account deletion purges ALL active sessions belonging to the user
+        across all devices/browsers, preventing lingering session token re-use.
+        """
+        from django.contrib.sessions.backends.db import SessionStore
+        from django.contrib.sessions.models import Session
+
+        # Simulate Session 1 (e.g. Chrome on Laptop)
+        s1 = SessionStore()
+        s1['_auth_user_id'] = str(self.alice.id)
+        s1['_auth_user_backend'] = 'django.contrib.auth.backends.ModelBackend'
+        s1.create()
+        key1 = s1.session_key
+
+        # Simulate Session 2 (e.g. Safari on Phone)
+        s2 = SessionStore()
+        s2['_auth_user_id'] = str(self.alice.id)
+        s2['_auth_user_backend'] = 'django.contrib.auth.backends.ModelBackend'
+        s2.create()
+        key2 = s2.session_key
+
+        # Confirm both sessions exist in the session database
+        self.assertTrue(Session.objects.filter(session_key=key1).exists())
+        self.assertTrue(Session.objects.filter(session_key=key2).exists())
+
+        # Perform deletion
+        self.client.login(username='alice', password='Password123!')
+        del_resp = self.client.post(reverse('accounts:account_delete'), {
+            'confirmation_username': 'alice',
+            'password': 'Password123!',
+            'confirm_permanent_loss': True,
+        })
+        self.assertRedirects(del_resp, reverse('accounts:login'))
+
+        # Assert BOTH session keys have been revoked from the database
+        self.assertFalse(Session.objects.filter(session_key=key1).exists())
+        self.assertFalse(Session.objects.filter(session_key=key2).exists())
+
+    def test_bookmark_export_excludes_restricted_and_blocked_posts(self):
+        """
+        Confirm personal data export does NOT leak captions of posts from authors
+        who subsequently blocked the user or restricted audience.
+        """
+        import json
+        from posts.models import Post
+        from social.models import Bookmark, Block
+
+        # Bob creates a post that Alice bookmarks
+        bobs_post = Post.objects.create(author=self.bob, content="Bob secret content that should not leak")
+        Bookmark.objects.create(user=self.alice, post=bobs_post)
+
+        # Bob now blocks Alice
+        Block.objects.create(blocker=self.bob, blocked=self.alice)
+
+        # Alice exports her data
+        self.client.login(username='alice', password='Password123!')
+        resp = self.client.get(reverse('accounts:data_export'))
+        self.assertEqual(resp.status_code, 200)
+
+        payload = json.loads(resp.content.decode('utf-8'))
+        # Alice's bookmarks list in export should NOT contain Bob's blocked post
+        self.assertEqual(len(payload['bookmarks']), 0)
+        self.assertNotIn("Bob secret content", resp.content.decode('utf-8'))
+
+    def test_saved_posts_view_excludes_restricted_content(self):
+        """
+        Verify saved posts page (/social/saved/) hides bookmarked posts that become restricted.
+        """
+        from posts.models import Post
+        from social.models import Bookmark, Follow
+
+        # Bob creates a followers-only post
+        bobs_post = Post.objects.create(author=self.bob, content="Bob followers post in bookmarks", audience='followers')
+        Bookmark.objects.create(user=self.alice, post=bobs_post)
+
+        # Alice does NOT follow Bob
+        self.client.login(username='alice', password='Password123!')
+        saved_resp = self.client.get(reverse('social:saved_posts'))
+        self.assertNotContains(saved_resp, "Bob followers post in bookmarks")
+
+        # Alice follows Bob: post now appears in saved posts
+        Follow.objects.create(follower=self.alice, following=self.bob)
+        saved_resp_followed = self.client.get(reverse('social:saved_posts'))
+        self.assertContains(saved_resp_followed, "Bob followers post in bookmarks")
