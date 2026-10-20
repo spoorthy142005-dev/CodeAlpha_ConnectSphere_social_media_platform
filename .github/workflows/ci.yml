@@ -67,12 +67,12 @@ jobs:
 
       - name: Apply Database Migrations on PostgreSQL 16
         env:
-          DATABASE_URL: postgres://postgres:postgrespassword@localhost:5432/connectsphere_ci
+          DATABASE_URL: postgres://postgres:postgrespassword@127.0.0.1:5432/connectsphere_ci
         run: |
           python manage.py migrate --noinput
 
       - name: Execute Automated Test Suite (PostgreSQL 16)
         env:
-          DATABASE_URL: postgres://postgres:postgrespassword@localhost:5432/connectsphere_ci
+          DATABASE_URL: postgres://postgres:postgrespassword@127.0.0.1:5432/connectsphere_ci
         run: |
           python manage.py test --verbosity=2
