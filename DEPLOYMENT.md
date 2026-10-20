@@ -94,10 +94,21 @@ python manage.py collectstatic --noinput
 
 ### User Uploaded Media (`media/`)
 User avatars, post images, and community icons are stored in `media/`.
-- **Isolation:** Media files are strictly segregated from static assets.
+- **WhiteNoise Distinction:** WhiteNoise is exclusively for version-controlled, immutable static assets (`staticfiles/`). Dynamic user-uploaded media files (`media/`) must NEVER be served by WhiteNoise.
 - **Production Serving:**
   - When self-hosting on a single VM, configure Nginx to serve `/media/` directly from disk with restrictive execute permissions (`X-Content-Type-Options: nosniff`).
-  - For horizontally scaled deployments, use `django-storages` with an S3 / Google Cloud Storage bucket.
+  - For horizontally scaled multi-server deployments, configure `django-storages` with an AWS S3 / Cloudflare R2 bucket.
+- **Media Backup & Recovery:**
+  ```bash
+  # 1. Create a compressed archive of user media
+  tar -czf "backups/media_backup_$(date +%Y%m%d_%H%M%S).tar.gz" -C /var/www/connectsphere media
+
+  # 2. Restore media archive
+  tar -xzf "backups/media_backup_YYYYMMDD.tar.gz" -C /var/www/connectsphere
+
+  # 3. Cloud S3 synchronization (automated offsite sync)
+  aws s3 sync /var/www/connectsphere/media/ s3://connectsphere-production-media-backups/media/ --delete
+  ```
 
 ---
 
