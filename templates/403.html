@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Access Denied (403) - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center" style="max-width: 600px; margin: 3rem auto; padding: 0 1rem;">
+  <div class="sidebar-card" style="text-align: center; padding: 3rem 2rem;">
+    <div style="font-size: 3.5rem; margin-bottom: 1rem;">🛡️</div>
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--navy-dark); margin-bottom: 0.5rem;">
+      Access Forbidden (403)
+    </h1>
+    <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 2rem;">
+      You do not have authorization to view this resource, edit this content, or perform this state-changing action.
+    </p>
+    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+      <a href="{% url 'posts:feed' %}" class="btn btn-primary" id="btn-403-home">
+        Back to Home Feed
+      </a>
+      <a href="{% url 'accounts:privacy_center' %}" class="btn btn-secondary" id="btn-403-privacy">
+        Review Privacy Settings
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

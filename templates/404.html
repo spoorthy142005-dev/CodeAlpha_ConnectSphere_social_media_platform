@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Page Not Found (404) - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center" style="max-width: 600px; margin: 3rem auto; padding: 0 1rem;">
+  <div class="sidebar-card" style="text-align: center; padding: 3rem 2rem;">
+    <div style="font-size: 3.5rem; margin-bottom: 1rem;">🔍</div>
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--navy-dark); margin-bottom: 0.5rem;">
+      Page Not Found (404)
+    </h1>
+    <p style="font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 2rem;">
+      The page, post, or resource you are looking for does not exist, has been moved, or is unavailable.
+    </p>
+    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+      <a href="{% url 'posts:feed' %}" class="btn btn-primary" id="btn-404-home">
+        Back to Home Feed
+      </a>
+      <a href="{% url 'posts:community_list' %}" class="btn btn-secondary" id="btn-404-communities">
+        Browse Communities
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
