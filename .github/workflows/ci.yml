@@ -10,6 +10,21 @@ jobs:
   test:
     name: Test & Production Readiness Checks
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: connectsphere_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
@@ -50,6 +65,14 @@ jobs:
         run: |
           python manage.py collectstatic --noinput
 
-      - name: Execute Automated Test Suite
+      - name: Apply Database Migrations on PostgreSQL 16
+        env:
+          DATABASE_URL: postgres://postgres:postgrespassword@localhost:5432/connectsphere_ci
+        run: |
+          python manage.py migrate --noinput
+
+      - name: Execute Automated Test Suite (PostgreSQL 16)
+        env:
+          DATABASE_URL: postgres://postgres:postgrespassword@localhost:5432/connectsphere_ci
         run: |
           python manage.py test --verbosity=2

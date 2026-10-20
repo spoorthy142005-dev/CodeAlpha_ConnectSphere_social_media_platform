@@ -250,7 +250,45 @@ If a regression or runtime issue occurs post-deploy:
 
 ---
 
-## 8. Known Limitations & Unverified External Portions
+---
 
-- **PostgreSQL Production Instance:** ConnectSphere includes full driver compatibility via `psycopg` and `dj-database-url`. While verified locally with SQLite and through dry-run migration checks, connection to an external live PostgreSQL cluster requires setting `DATABASE_URL` in your production environment.
-- **External Media Storage:** The codebase is configured for local media directory storage. For horizontal multi-server clusters, an S3 backend (`django-storages`) should be configured for the media bucket.
+## 8. Staging Environment & Health Checks
+
+### Staging Environment Setup
+Staging serves as a replica of production to validate database migrations, PostgreSQL constraints, SSL redirection, and session lifecycles:
+1. **Isolated Database**: Staging should connect to a dedicated staging PostgreSQL database:
+   ```bash
+   DATABASE_URL="postgres://connectsphere_staging:staging_pass@db.staging.internal:5432/connectsphere_staging"
+   ```
+2. **Staging Settings**:
+   - `DJANGO_DEBUG=False`
+   - `DJANGO_ALLOWED_HOSTS="staging.connectsphere.internal,staging.example.com"`
+   - `DJANGO_CSRF_TRUSTED_ORIGINS="https://staging.example.com"`
+   - `DJANGO_SECURE_SSL_REDIRECT=True`
+3. **Health Check Probes**:
+   - **Liveness Probe**: HTTP GET to `/accounts/login/` verifying HTTP 200 (or HTTP 302 to HTTPS if testing non-SSL ingress).
+   - **Readiness Probe**: Execute Django database connectivity check:
+     ```bash
+     python -c "import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings'); django.setup(); from django.db import connection; connection.cursor().execute('SELECT 1;')"
+     ```
+   - **Systemd Health Monitoring**: Service automatically restarts on failure via `Restart=always` with 5s delay.
+
+---
+
+## 9. Migration & Rollback Limitations
+
+When planning production or staging releases:
+- **Additive Migrations**: Adding models, nullable columns, or models with default values are safe and support zero-downtime forward deployments.
+- **Breaking Schema Changes**:
+  - Renaming or dropping columns requires a multi-phase migration (Phase 1: add new column and dual-write; Phase 2: backfill; Phase 3: drop old column in subsequent release).
+  - Reversing migrations with `python manage.py migrate <app> <previous_migration>` will drop newly added tables or columns and destroy any data written to them since the release. Always create a pre-migration database snapshot before running migrations:
+    ```bash
+    pg_dump -Fc -h localhost -U connectsphere_user connectsphere_prod > "backups/pre_migration_backup_$(date +%Y%m%d_%H%M%S).dump"
+    ```
+
+---
+
+## 10. Known Limitations & Unverified External Portions
+
+- **PostgreSQL Production Instance**: ConnectSphere includes full driver compatibility via `psycopg` and `dj-database-url`. While verified locally with SQLite and tested via GitHub Actions PostgreSQL 16 service container, connection to an external live PostgreSQL cluster requires setting `DATABASE_URL` in your production hosting environment.
+- **External Media Storage**: The codebase is configured for local media directory storage with server-side 5MB upload ceilings. For horizontal multi-server clusters, an S3 backend (`django-storages`) should be configured for the media bucket.

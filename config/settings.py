@@ -65,6 +65,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'config.middleware.MaxUploadSizeMiddleware',  # Server-side 5MB upload ceiling
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Production static asset pipeline
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
