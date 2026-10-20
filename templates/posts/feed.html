@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+
+{% block title %}Feed - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-feed">
+
+  <!-- Left Sidebar: Profile Summary -->
+  <aside class="sidebar-nav">
+    <div class="sidebar-card">
+      <div class="sidebar-profile-snippet">
+        <a href="{% url 'accounts:profile_detail' username=request.user.username %}">
+          {% if request.user.profile.avatar %}
+            <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.username }}" class="avatar avatar-lg">
+          {% else %}
+            <div class="avatar avatar-lg" style="margin: 0 auto;">{{ request.user.username|slice:":1" }}</div>
+          {% endif %}
+        </a>
+        <h2 style="font-size: 1.05rem; font-weight: 700; color: var(--navy-dark); margin-top: 0.5rem;">
+          <a href="{% url 'accounts:profile_detail' username=request.user.username %}" style="color: inherit;">
+            {{ request.user.profile.get_display_name }}
+          </a>
+        </h2>
+        <div style="font-size: 0.825rem; color: var(--text-muted);">@{{ request.user.username }}</div>
+      </div>
+
+      <div class="sidebar-stat-grid">
+        <div>
+          <div class="sidebar-stat-number">{{ request.user.profile.posts_count }}</div>
+          <div class="sidebar-stat-label">Posts</div>
+        </div>
+        <a href="{% url 'social:followers_list' username=request.user.username %}" style="color: inherit;">
+          <div class="sidebar-stat-number">{{ request.user.profile.followers_count }}</div>
+          <div class="sidebar-stat-label">Followers</div>
+        </a>
+        <a href="{% url 'social:following_list' username=request.user.username %}" style="color: inherit;">
+          <div class="sidebar-stat-number">{{ request.user.profile.following_count }}</div>
+          <div class="sidebar-stat-label">Following</div>
+        </a>
+      </div>
+    </div>
+
+    <div class="sidebar-card" style="margin-top: 0.75rem;">
+      <nav style="display: flex; flex-direction: column; gap: 0.35rem;">
+        <a href="{% url 'posts:feed' %}?mode=following" class="nav-link {% if feed_mode == 'following' %}active{% endif %}">
+          <span>👥</span> Following Feed
+        </a>
+        <a href="{% url 'posts:feed' %}?mode=discover" class="nav-link {% if feed_mode == 'discover' %}active{% endif %}">
+          <span>🌐</span> Discover Feed
+        </a>
+        <a href="{% url 'social:saved_posts' %}" class="nav-link">
+          <span>📑</span> Saved Bookmarks
+        </a>
+        <a href="{% url 'accounts:profile_edit' %}" class="nav-link">
+          <span>⚙️</span> Edit Profile & Settings
+        </a>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Center Feed -->
+  <section class="feed-main" role="region" aria-label="Posts Stream">
+
+    <!-- Post Composer Card -->
+    <div class="post-composer-card">
+      <form action="{% url 'posts:post_create' %}" method="post" enctype="multipart/form-data" id="post-composer-form">
+        {% csrf_token %}
+        <div class="composer-header">
+          {% if request.user.profile.avatar %}
+            <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.username }}" class="avatar avatar-md">
+          {% else %}
+            <div class="avatar avatar-md">{{ request.user.username|slice:":1" }}</div>
+          {% endif %}
+          <div style="flex: 1;">
+            {{ post_form.content }}
+            <div class="image-preview-container">
+              <img src="" alt="Preview" class="image-preview-img">
+            </div>
+          </div>
+        </div>
+
+        <div class="composer-footer">
+          <label class="image-upload-btn" title="Add Image to Post">
+            <span>📷 Attach Image</span>
+            {{ post_form.image }}
+          </label>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-publish-post">
+            Share Post
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Feed Switcher Tabs -->
+    <nav class="feed-tabs" role="tablist" aria-label="Feed mode">
+      <a href="{% url 'posts:feed' %}?mode=following" class="feed-tab {% if feed_mode == 'following' %}active{% endif %}" role="tab" id="tab-following">
+        👥 Following
+      </a>
+      <a href="{% url 'posts:feed' %}?mode=discover" class="feed-tab {% if feed_mode == 'discover' %}active{% endif %}" role="tab" id="tab-discover">
+        🌐 Discover
+      </a>
+    </nav>
+
+    <!-- Post Stream List -->
+    {% if page_obj %}
+      {% for post in page_obj %}
+        <article class="post-card" id="post-{{ post.id }}">
+          <div class="post-header">
+            <div class="post-author-info">
+              <a href="{% url 'accounts:profile_detail' username=post.author.username %}">
+                {% if post.author.profile.avatar %}
+                  <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="avatar avatar-md">
+                {% else %}
+                  <div class="avatar avatar-md">{{ post.author.username|slice:":1" }}</div>
+                {% endif %}
+              </a>
+              <div>
+                <a href="{% url 'accounts:profile_detail' username=post.author.username %}" class="post-author-name">
+                  {{ post.author.profile.get_display_name }}
+                </a>
+                <span class="post-author-handle">@{{ post.author.username }}</span>
+                <div class="post-meta">
+                  <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|timesince }} ago</time>
+                  {% if post.is_edited %}
+                    <span class="edited-badge">· (edited)</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            {% if post.author == request.user %}
+              <div style="display: flex; gap: 0.35rem;">
+                <a href="{% url 'posts:post_edit' post_id=post.id %}" class="btn btn-secondary btn-sm" title="Edit post">Edit</a>
+                <a href="{% url 'posts:post_delete' post_id=post.id %}" class="btn btn-outline-danger btn-sm" title="Delete post">Delete</a>
+              </div>
+            {% else %}
+              <a href="{% url 'moderation:report_post' post_id=post.id %}" class="action-btn" title="Report post" style="color: var(--text-light);">
+                🚩
+              </a>
+            {% endif %}
+          </div>
+
+          {% if post.content %}
+            <div class="post-content">{{ post.content }}</div>
+          {% endif %}
+
+          {% if post.image %}
+            <div class="post-image-wrapper">
+              <img src="{{ post.image.url }}" alt="Post image" class="post-image" loading="lazy">
+            </div>
+          {% endif %}
+
+          <div class="post-actions">
+            <div class="post-actions-group">
+              <button 
+                class="action-btn btn-like-ajax {% if request.user in post.likes.all %}liked{% endif %}" 
+                data-post-id="{{ post.id }}"
+                id="btn-like-{{ post.id }}"
+                aria-label="Like post"
+              >
+                <span class="like-icon">❤️</span>
+                <span class="like-count">{{ post.likes_count }}</span>
+              </button>
+
+              <a href="{% url 'posts:post_detail' post_id=post.id %}" class="action-btn" id="btn-comment-link-{{ post.id }}">
+                <span>💬</span>
+                <span>{{ post.comments_count }}</span>
+              </a>
+            </div>
+
+            <button 
+              class="action-btn btn-bookmark-ajax" 
+              data-post-id="{{ post.id }}"
+              id="btn-bookmark-{{ post.id }}"
+              aria-label="Bookmark post"
+            >
+              <span class="bookmark-icon">📑</span>
+              <span class="bookmark-label">Save</span>
+            </button>
+          </div>
+        </article>
+      {% endfor %}
+
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+        <nav class="pagination" aria-label="Feed pagination">
+          {% if page_obj.has_previous %}
+            <a href="?mode={{ feed_mode }}&page={{ page_obj.previous_page_number }}" class="page-link">&laquo; Newer</a>
+          {% endif %}
+
+          <span class="page-link active">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+          {% if page_obj.has_next %}
+            <a href="?mode={{ feed_mode }}&page={{ page_obj.next_page_number }}" class="page-link">Older &raquo;</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+
+    {% else %}
+      <div class="empty-state">
+        {% if feed_mode == 'following' %}
+          <div class="empty-state-icon">👥</div>
+          <h3 class="empty-state-title">Your feed is quiet</h3>
+          <p class="empty-state-text">
+            You're not following anyone who has posted recently. Check out the Discover tab to find people to follow!
+          </p>
+          <a href="{% url 'posts:feed' %}?mode=discover" class="btn btn-primary btn-sm">Explore Discover Feed</a>
+        {% else %}
+          <div class="empty-state-icon">🌐</div>
+          <h3 class="empty-state-title">No public posts yet</h3>
+          <p class="empty-state-text">
+            Be the very first one to publish a thought, question, or photo to the ConnectSphere community!
+          </p>
+        {% endif %}
+      </div>
+    {% endif %}
+
+  </section>
+
+  <!-- Right Sidebar -->
+  <aside class="sidebar-right">
+    <div class="sidebar-card">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 0.75rem;">
+        🌟 Discover People
+      </h3>
+      <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Connect with thinkers, creators, and colleagues across the network.
+      </p>
+      <a href="{% url 'accounts:search' %}" class="btn btn-secondary btn-sm btn-block">
+        Find Connections
+      </a>
+    </div>
+
+    <div class="sidebar-card" style="margin-top: 1rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 0.5rem;">
+        🛡️ Community Guidelines
+      </h3>
+      <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1rem; line-height: 1.6;">
+        <li>Be respectful and constructive</li>
+        <li>Protect private information</li>
+        <li>No hate speech or harassment</li>
+        <li>Report harmful content promptly</li>
+      </ul>
+    </div>
+  </aside>
+
+</div>
+{% endblock %}

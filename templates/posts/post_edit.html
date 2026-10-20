@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Post - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+      <h1 style="font-size: 1.3rem; color: var(--navy-dark); font-weight: 700;">Edit Post</h1>
+      <a href="{% url 'posts:post_detail' post_id=post.id %}" class="btn btn-secondary btn-sm">Cancel</a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="post-edit-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="id_content" class="form-label">Post Content</label>
+        {{ form.content }}
+        {% if form.content.errors %}
+          <ul class="form-error-list">{% for err in form.content.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      {% if post.image %}
+        <div style="margin-bottom: 1rem;">
+          <label class="form-label">Current Image</label>
+          <div style="max-width: 250px;">
+            <img src="{{ post.image.url }}" alt="Current post image" style="width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label for="id_image" class="form-label">Replace Image (optional)</label>
+        {{ form.image }}
+        {% if form.image.errors %}
+          <ul class="form-error-list">{% for err in form.image.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+        <a href="{% url 'posts:post_detail' post_id=post.id %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-post">Update Post</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

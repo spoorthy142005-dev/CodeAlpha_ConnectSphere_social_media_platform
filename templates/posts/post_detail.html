@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block title %}Post by @{{ post.author.username }} - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div style="margin-bottom: 1rem;">
+    <a href="{% url 'posts:feed' %}" class="btn btn-secondary btn-sm" id="btn-back-feed">
+      &larr; Back to Feed
+    </a>
+  </div>
+
+  <article class="post-card" id="post-detail-card">
+    <div class="post-header">
+      <div class="post-author-info">
+        <a href="{% url 'accounts:profile_detail' username=post.author.username %}">
+          {% if post.author.profile.avatar %}
+            <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="avatar avatar-md">
+          {% else %}
+            <div class="avatar avatar-md">{{ post.author.username|slice:":1" }}</div>
+          {% endif %}
+        </a>
+        <div>
+          <a href="{% url 'accounts:profile_detail' username=post.author.username %}" class="post-author-name">
+            {{ post.author.profile.get_display_name }}
+          </a>
+          <span class="post-author-handle">@{{ post.author.username }}</span>
+          <div class="post-meta">
+            <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"M d, Y · h:i A" }}</time>
+            {% if post.is_edited %}
+              <span class="edited-badge">· (edited {{ post.updated_at|timesince }} ago)</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if post.author == request.user %}
+        <div style="display: flex; gap: 0.35rem;">
+          <a href="{% url 'posts:post_edit' post_id=post.id %}" class="btn btn-secondary btn-sm" id="btn-edit-post">Edit</a>
+          <a href="{% url 'posts:post_delete' post_id=post.id %}" class="btn btn-outline-danger btn-sm" id="btn-delete-post">Delete</a>
+        </div>
+      {% else %}
+        <a href="{% url 'moderation:report_post' post_id=post.id %}" class="action-btn" title="Report post" style="color: var(--text-light);">
+          🚩 Report
+        </a>
+      {% endif %}
+    </div>
+
+    {% if post.content %}
+      <div class="post-content" style="font-size: 1.05rem; line-height: 1.6; margin: 1rem 0;">
+        {{ post.content }}
+      </div>
+    {% endif %}
+
+    {% if post.image %}
+      <div class="post-image-wrapper">
+        <img src="{{ post.image.url }}" alt="Post image" class="post-image">
+      </div>
+    {% endif %}
+
+    <div class="post-actions" style="margin-top: 1rem;">
+      <div class="post-actions-group">
+        <button 
+          class="action-btn btn-like-ajax {% if request.user in post.likes.all %}liked{% endif %}" 
+          data-post-id="{{ post.id }}"
+          id="btn-detail-like"
+          aria-label="Like post"
+        >
+          <span class="like-icon">❤️</span>
+          <span class="like-count">{{ post.likes_count }}</span>
+          <span>Likes</span>
+        </button>
+
+        <span class="action-btn" style="cursor: default;">
+          <span>💬</span>
+          <span>{{ post.comments_count }} Comments</span>
+        </span>
+      </div>
+
+      <button 
+        class="action-btn btn-bookmark-ajax" 
+        data-post-id="{{ post.id }}"
+        id="btn-detail-bookmark"
+        aria-label="Bookmark post"
+      >
+        <span class="bookmark-icon">📑</span>
+        <span class="bookmark-label">Save</span>
+      </button>
+    </div>
+
+    <!-- Comments Section -->
+    <section class="comments-section" aria-label="Comments">
+      <h3 style="font-size: 1rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 1rem;">
+        Discussion ({{ post.comments_count }})
+      </h3>
+
+      <!-- Add Comment Form -->
+      <form action="{% url 'posts:comment_create' post_id=post.id %}" method="post" class="comment-form" id="comment-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <div style="flex: 1;">
+          {{ comment_form.content }}
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-comment">
+          Comment
+        </button>
+      </form>
+
+      <!-- Comments List -->
+      <div style="margin-top: 1.25rem;">
+        {% for comment in post.comments.all %}
+          <div class="comment-item" id="comment-{{ comment.id }}">
+            <a href="{% url 'accounts:profile_detail' username=comment.author.username %}">
+              {% if comment.author.profile.avatar %}
+                <img src="{{ comment.author.profile.avatar.url }}" alt="{{ comment.author.username }}" class="avatar avatar-sm">
+              {% else %}
+                <div class="avatar avatar-sm">{{ comment.author.username|slice:":1" }}</div>
+              {% endif %}
+            </a>
+            
+            <div class="comment-bubble">
+              <div class="comment-header">
+                <div>
+                  <a href="{% url 'accounts:profile_detail' username=comment.author.username %}" class="comment-author">
+                    {{ comment.author.profile.get_display_name }}
+                  </a>
+                  <span style="color: var(--text-muted); font-size: 0.75rem;">@{{ comment.author.username }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="comment-time">{{ comment.created_at|timesince }} ago</span>
+                  {% if comment.is_edited %}
+                    <span style="font-size: 0.7rem; color: var(--text-light);">(edited)</span>
+                  {% endif %}
+                  {% if comment.author == request.user %}
+                    <a href="{% url 'posts:comment_edit' comment_id=comment.id %}" style="font-size: 0.75rem; color: var(--primary);">Edit</a>
+                    <a href="{% url 'posts:comment_delete' comment_id=comment.id %}" style="font-size: 0.75rem; color: var(--danger);">Delete</a>
+                  {% else %}
+                    <a href="{% url 'moderation:report_comment' comment_id=comment.id %}" style="font-size: 0.75rem; color: var(--text-light);" title="Report comment">🚩</a>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="comment-text">{{ comment.content }}</div>
+            </div>
+          </div>
+        {% empty %}
+          <p style="text-align: center; color: var(--text-muted); font-size: 0.875rem; margin: 1.5rem 0;">
+            No comments yet. Start the conversation!
+          </p>
+        {% endfor %}
+      </div>
+    </section>
+  </article>
+</div>
+{% endblock %}

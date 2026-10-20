@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Comment - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-auth">
+  <div class="sidebar-card">
+    <h1 style="font-size: 1.25rem; color: var(--navy-dark); font-weight: 700; margin-bottom: 1rem;">
+      Edit Comment
+    </h1>
+
+    <form method="post" id="comment-edit-form">
+      {% csrf_token %}
+      <div class="form-group">
+        {{ form.content }}
+        {% if form.content.errors %}
+          <ul class="form-error-list">{% for err in form.content.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
+        <a href="{% url 'posts:post_detail' post_id=comment.post_id %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btn-update-comment">Save Comment</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

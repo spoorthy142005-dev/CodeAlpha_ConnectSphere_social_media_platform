@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Profile - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+      <div>
+        <h1 style="font-size: 1.4rem; color: var(--navy-dark); font-weight: 700;">Edit Your Profile</h1>
+        <p style="color: var(--text-muted); font-size: 0.875rem;">Manage your public persona and account preferences.</p>
+      </div>
+      <a href="{% url 'accounts:profile_detail' username=request.user.username %}" class="btn btn-secondary btn-sm">
+        Back to Profile
+      </a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="profile-edit-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="id_display_name" class="form-label">Display Name</label>
+        {{ form.display_name }}
+        {% if form.display_name.errors %}
+          <ul class="form-error-list">{% for err in form.display_name.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_bio" class="form-label">Bio (up to 500 characters)</label>
+        {{ form.bio }}
+        {% if form.bio.errors %}
+          <ul class="form-error-list">{% for err in form.bio.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="id_avatar" class="form-label">Profile Avatar</label>
+        {% if request.user.profile.avatar %}
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+            <img src="{{ request.user.profile.avatar.url }}" alt="Current avatar" class="avatar avatar-lg">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Current Avatar</span>
+          </div>
+        {% endif %}
+        {{ form.avatar }}
+        <div class="form-help-text">Formats: JPG, PNG, GIF, WebP. Maximum size 2MB.</div>
+        {% if form.avatar.errors %}
+          <ul class="form-error-list">{% for err in form.avatar.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+
+      <div style="background-color: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--navy-dark); margin-bottom: 0.75rem;">Privacy & Preferences</h3>
+        
+        <div style="display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem;">
+          {{ form.is_private }}
+          <div>
+            <label for="id_is_private" style="font-weight: 600; font-size: 0.875rem; color: var(--navy-dark); cursor: pointer;">
+              Private Account
+            </label>
+            <div style="font-size: 0.775rem; color: var(--text-muted);">
+              When active, only users who follow you will be able to see your posts and media in Discover or your profile.
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+          {{ form.low_bandwidth }}
+          <div>
+            <label for="id_low_bandwidth" style="font-weight: 600; font-size: 0.875rem; color: var(--navy-dark); cursor: pointer;">
+              Low-Bandwidth Mode
+            </label>
+            <div style="font-size: 0.775rem; color: var(--text-muted);">
+              Disables CSS animations, reduces drop-shadows, and optimizes layout for slower internet connections.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <a href="{% url 'accounts:profile_detail' username=request.user.username %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-profile">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

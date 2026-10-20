@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}@{{ target_user.username }} - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="profile-card">
+    <div class="profile-top-bar">
+      <div class="profile-identity">
+        {% if target_user.profile.avatar %}
+          <img src="{{ target_user.profile.avatar.url }}" alt="{{ target_user.username }}" class="avatar avatar-xl">
+        {% else %}
+          <div class="avatar avatar-xl">{{ target_user.username|slice:":1" }}</div>
+        {% endif %}
+        
+        <div class="profile-names">
+          <h1>{{ target_user.profile.get_display_name }}</h1>
+          <div class="profile-handle">@{{ target_user.username }}
+            {% if target_user.profile.is_private %}
+              <span title="Private Profile" style="font-size: 0.85rem; margin-left: 0.35rem;">🔒 Private</span>
+            {% endif %}
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.25rem;">
+            Joined {{ target_user.date_joined|date:"F Y" }}
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        {% if is_self %}
+          <a href="{% url 'accounts:profile_edit' %}" class="btn btn-secondary btn-sm" id="btn-edit-profile">
+            ✏️ Edit Profile
+          </a>
+          <a href="{% url 'social:blocked_users' %}" class="btn btn-secondary btn-sm" id="btn-manage-blocked">
+            🚫 Blocked Users
+          </a>
+        {% elif not is_blocked %}
+          <form action="{% url 'social:follow_toggle' username=target_user.username %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            {% if is_following %}
+              <button type="submit" class="btn btn-secondary btn-sm" id="btn-unfollow">Following</button>
+            {% else %}
+              <button type="submit" class="btn btn-primary btn-sm" id="btn-follow">+ Follow</button>
+            {% endif %}
+          </form>
+
+          <form action="{% url 'social:block_toggle' username=target_user.username %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" data-confirm="Are you sure you want to block @{{ target_user.username }}? They will not be able to interact with you." id="btn-block-user">
+              Block
+            </button>
+          </form>
+
+          <a href="{% url 'moderation:report_user' username=target_user.username %}" class="btn btn-secondary btn-sm" title="Report Account" id="btn-report-user">
+            🚩
+          </a>
+        {% else %}
+          <form action="{% url 'social:block_toggle' username=target_user.username %}" method="post" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" id="btn-unblock-user">
+              Unblock @{{ target_user.username }}
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if target_user.profile.bio and not is_blocked %}
+      <div class="profile-bio">{{ target_user.profile.bio }}</div>
+    {% endif %}
+
+    {% if not is_blocked %}
+    <div class="profile-stats-bar">
+      <div class="stat-item">
+        <strong>{{ target_user.profile.posts_count }}</strong> posts
+      </div>
+      <a href="{% url 'social:followers_list' username=target_user.username %}" class="stat-item" style="color: inherit;">
+        <strong>{{ target_user.profile.followers_count }}</strong> followers
+      </a>
+      <a href="{% url 'social:following_list' username=target_user.username %}" class="stat-item" style="color: inherit;">
+        <strong>{{ target_user.profile.following_count }}</strong> following
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Content Section -->
+  {% if is_blocked %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🚫</div>
+      <h2 class="empty-state-title">User Blocked</h2>
+      <p class="empty-state-text">
+        You have blocked this account or this user is unavailable. Their posts and interaction history are hidden.
+      </p>
+    </div>
+  {% elif not can_view_content %}
+    <div class="empty-state">
+      <div class="empty-state-icon">🔒</div>
+      <h2 class="empty-state-title">This Account is Private</h2>
+      <p class="empty-state-text">
+        Follow @{{ target_user.username }} to see their posts and updates.
+      </p>
+    </div>
+  {% else %}
+    <h2 style="font-size: 1.1rem; color: var(--navy-dark); font-weight: 700; margin-bottom: 1rem;">
+      Posts by {{ target_user.profile.get_display_name }}
+    </h2>
+
+    {% if page_obj %}
+      {% for post in page_obj %}
+        <article class="post-card" id="post-{{ post.id }}">
+          <div class="post-header">
+            <div class="post-author-info">
+              {% if post.author.profile.avatar %}
+                <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="avatar avatar-md">
+              {% else %}
+                <div class="avatar avatar-md">{{ post.author.username|slice:":1" }}</div>
+              {% endif %}
+              <div>
+                <span class="post-author-name">{{ post.author.profile.get_display_name }}</span>
+                <span class="post-author-handle">@{{ post.author.username }}</span>
+                <div class="post-meta">
+                  <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|timesince }} ago</time>
+                  {% if post.is_edited %}
+                    <span class="edited-badge">· (edited)</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            {% if post.author == request.user %}
+              <div style="display: flex; gap: 0.35rem;">
+                <a href="{% url 'posts:post_edit' post_id=post.id %}" class="btn btn-secondary btn-sm" title="Edit post">Edit</a>
+                <a href="{% url 'posts:post_delete' post_id=post.id %}" class="btn btn-outline-danger btn-sm" title="Delete post">Delete</a>
+              </div>
+            {% else %}
+              <a href="{% url 'moderation:report_post' post_id=post.id %}" class="action-btn" title="Report post">🚩</a>
+            {% endif %}
+          </div>
+
+          {% if post.content %}
+            <div class="post-content">{{ post.content }}</div>
+          {% endif %}
+
+          {% if post.image %}
+            <div class="post-image-wrapper">
+              <img src="{{ post.image.url }}" alt="Post image" class="post-image" loading="lazy">
+            </div>
+          {% endif %}
+
+          <div class="post-actions">
+            <div class="post-actions-group">
+              <button 
+                class="action-btn btn-like-ajax {% if post|yesno:'liked,' %}{% endif %}" 
+                data-post-id="{{ post.id }}"
+                aria-label="Like post"
+              >
+                <span class="like-icon">❤️</span>
+                <span class="like-count">{{ post.likes_count }}</span>
+              </button>
+
+              <a href="{% url 'posts:post_detail' post_id=post.id %}" class="action-btn">
+                <span>💬</span>
+                <span>{{ post.comments_count }}</span>
+              </a>
+            </div>
+
+            <button 
+              class="action-btn btn-bookmark-ajax" 
+              data-post-id="{{ post.id }}"
+              aria-label="Save post"
+            >
+              <span class="bookmark-icon">📑</span>
+              <span class="bookmark-label">Save</span>
+            </button>
+          </div>
+        </article>
+      {% endfor %}
+
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+        <nav class="pagination" aria-label="Posts pagination">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="page-link">&laquo; Previous</a>
+          {% endif %}
+          
+          <span class="page-link active">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="page-link">Next &raquo;</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">✍️</div>
+        <h3 class="empty-state-title">No posts yet</h3>
+        <p class="empty-state-text">@{{ target_user.username }} hasn't published any posts so far.</p>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

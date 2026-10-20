@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Saved Bookmarks - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div style="margin-bottom: 1.5rem;">
+    <h1 style="font-size: 1.4rem; color: var(--navy-dark); font-weight: 700;">Your Saved Posts</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem;">Private bookmarks that only you can see.</p>
+  </div>
+
+  {% if page_obj %}
+    {% for post in page_obj %}
+      <article class="post-card" id="post-{{ post.id }}">
+        <div class="post-header">
+          <div class="post-author-info">
+            <a href="{% url 'accounts:profile_detail' username=post.author.username %}">
+              {% if post.author.profile.avatar %}
+                <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" class="avatar avatar-md">
+              {% else %}
+                <div class="avatar avatar-md">{{ post.author.username|slice:":1" }}</div>
+              {% endif %}
+            </a>
+            <div>
+              <a href="{% url 'accounts:profile_detail' username=post.author.username %}" class="post-author-name">
+                {{ post.author.profile.get_display_name }}
+              </a>
+              <span class="post-author-handle">@{{ post.author.username }}</span>
+              <div class="post-meta">
+                <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|timesince }} ago</time>
+              </div>
+            </div>
+          </div>
+
+          <form action="{% url 'social:bookmark_toggle' post_id=post.id %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-secondary btn-sm" title="Remove bookmark">
+              Remove
+            </button>
+          </form>
+        </div>
+
+        {% if post.content %}
+          <div class="post-content">{{ post.content }}</div>
+        {% endif %}
+
+        {% if post.image %}
+          <div class="post-image-wrapper">
+            <img src="{{ post.image.url }}" alt="Saved post image" class="post-image" loading="lazy">
+          </div>
+        {% endif %}
+
+        <div class="post-actions">
+          <a href="{% url 'posts:post_detail' post_id=post.id %}" class="action-btn">
+            <span>💬 View Post & Discussion ({{ post.comments_count }})</span>
+          </a>
+        </div>
+      </article>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+      <nav class="pagination" aria-label="Saved posts pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="page-link">&laquo; Previous</a>
+        {% endif %}
+
+        <span class="page-link active">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="page-link">Next &raquo;</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">📑</div>
+      <h3 class="empty-state-title">No bookmarks saved yet</h3>
+      <p class="empty-state-text">
+        Click the bookmark icon on any post in your feed to save it for easy access later.
+      </p>
+      <a href="{% url 'posts:feed' %}" class="btn btn-primary btn-sm">Browse Feed</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

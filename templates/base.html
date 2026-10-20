@@ -1,0 +1,105 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ConnectSphere - A modern, secure, and accessible social networking platform to connect with ideas and people.">
+  <title>{% block title %}ConnectSphere{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="{% if low_bandwidth_mode %}low-bandwidth{% endif %}">
+
+  <!-- Main Navigation Header -->
+  <header class="navbar" role="banner">
+    <div class="nav-container">
+      <a href="{% url 'posts:feed' %}" class="brand-link" id="brand-logo" aria-label="ConnectSphere Home">
+        <span class="brand-logo-icon">CS</span>
+        <span>ConnectSphere</span>
+      </a>
+
+      {% if user.is_authenticated %}
+      <div class="nav-search">
+        <form action="{% url 'accounts:search' %}" method="get" class="nav-search-form" role="search">
+          <span class="nav-search-icon" aria-hidden="true">🔍</span>
+          <input 
+            type="search" 
+            name="q" 
+            placeholder="Search users on ConnectSphere..." 
+            class="nav-search-input" 
+            aria-label="Search users"
+            id="global-search-input"
+            value="{{ request.GET.q|default:'' }}"
+          >
+        </form>
+      </div>
+
+      <nav class="nav-actions" role="navigation" aria-label="Main Navigation">
+        <a href="{% url 'posts:feed' %}" class="nav-link {% if request.resolver_match.url_name == 'feed' %}active{% endif %}" id="nav-feed">
+          <span>🏠</span> Home
+        </a>
+
+        <a href="{% url 'social:saved_posts' %}" class="nav-link {% if request.resolver_match.url_name == 'saved_posts' %}active{% endif %}" id="nav-bookmarks">
+          <span>📑</span> Saved
+        </a>
+
+        <a href="{% url 'notifications:list' %}" class="nav-link {% if request.resolver_match.app_name == 'notifications' %}active{% endif %}" id="nav-notifications">
+          <span>🔔</span> Notifications
+          {% if unread_notifications_count > 0 %}
+            <span class="badge-counter" id="unread-notification-badge">{{ unread_notifications_count }}</span>
+          {% endif %}
+        </a>
+
+        {% if user.is_staff %}
+        <a href="{% url 'moderation:dashboard' %}" class="nav-link {% if request.resolver_match.app_name == 'moderation' %}active{% endif %}" id="nav-moderation">
+          <span>🛡️</span> Moderation
+        </a>
+        {% endif %}
+
+        <a href="{% url 'accounts:profile_detail' username=user.username %}" class="nav-link {% if request.resolver_match.url_name == 'profile_detail' and request.resolver_match.kwargs.username == user.username %}active{% endif %}" id="nav-profile">
+          {% if user.profile.avatar %}
+            <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="avatar avatar-sm">
+          {% else %}
+            <div class="avatar avatar-sm">{{ user.username|slice:":1" }}</div>
+          {% endif %}
+          <span>@{{ user.username }}</span>
+        </a>
+
+        <form action="{% url 'accounts:logout' %}" method="post" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary btn-sm" id="btn-logout" title="Sign out">
+            Sign out
+          </button>
+        </form>
+      </nav>
+      {% else %}
+      <nav class="nav-actions" role="navigation">
+        <a href="{% url 'accounts:login' %}" class="btn btn-secondary btn-sm" id="nav-login">Sign in</a>
+        <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-sm" id="nav-register">Create Account</a>
+      </nav>
+      {% endif %}
+    </div>
+  </header>
+
+  <!-- Flash Messages Banner -->
+  {% if messages %}
+  <div class="alert-container" aria-live="polite">
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
+        <span>{{ message }}</span>
+        <button type="button" class="alert-close" aria-label="Close message">&times;</button>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Main Body Content -->
+  <main id="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{% static 'js/main.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

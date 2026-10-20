@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Report #{{ report.id }} - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-auth">
+  <div class="sidebar-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+      <h1 style="font-size: 1.3rem; color: var(--navy-dark); font-weight: 700;">
+        Review Report #{{ report.id }}
+      </h1>
+      <a href="{% url 'moderation:dashboard' %}" class="btn btn-secondary btn-sm">
+        Back to Queue
+      </a>
+    </div>
+
+    <div style="margin-bottom: 1.25rem; font-size: 0.9rem;">
+      <p><strong>Reason:</strong> {{ report.get_reason_display }}</p>
+      <p><strong>Reporter:</strong> @{{ report.reporter.username }}</p>
+      <p><strong>Reported User:</strong> {% if report.reported_user %}@{{ report.reported_user.username }}{% else %}N/A{% endif %}</p>
+      {% if report.notes %}
+        <p><strong>Notes:</strong> {{ report.notes }}</p>
+      {% endif %}
+    </div>
+
+    <div style="background-color: var(--bg-subtle); padding: 0.85rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; font-size: 0.875rem;">
+      <strong>Target Content:</strong>
+      <div style="margin-top: 0.5rem;">
+        {% if report.post %}
+          <p>{{ report.post.content }}</p>
+          {% if report.post.image %}
+            <img src="{{ report.post.image.url }}" alt="Reported post image" style="max-width: 100%; border-radius: var(--radius-sm); margin-top: 0.5rem;">
+          {% endif %}
+        {% elif report.comment %}
+          <p>{{ report.comment.content }}</p>
+        {% elif report.reported_user %}
+          <p>Account: @{{ report.reported_user.username }}</p>
+        {% else %}
+          <em>Content has been removed.</em>
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="post" id="moderation-action-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="id_status" class="form-label">Update Status</label>
+        {{ form.status }}
+      </div>
+
+      {% if report.post or report.comment %}
+        <div style="background-color: var(--danger-bg); padding: 0.75rem; border-radius: var(--radius-md); margin-bottom: 1rem; border: 1px solid #fecaca;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--danger); font-weight: 600; cursor: pointer;">
+            {{ form.delete_content }}
+            <span>Delete reported content immediately</span>
+          </label>
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label for="id_resolution_notes" class="form-label">Moderator Resolution Notes</label>
+        {{ form.resolution_notes }}
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem;">
+        <a href="{% url 'moderation:dashboard' %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-decision">Save Decision</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

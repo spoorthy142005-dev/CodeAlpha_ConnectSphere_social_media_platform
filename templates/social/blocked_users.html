@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Blocked Accounts - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+      <div>
+        <h1 style="font-size: 1.3rem; color: var(--navy-dark); font-weight: 700;">Blocked Accounts</h1>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Users you have blocked cannot interact with you or see your content.</p>
+      </div>
+      <a href="{% url 'accounts:profile_detail' username=request.user.username %}" class="btn btn-secondary btn-sm">
+        Back to Profile
+      </a>
+    </div>
+
+    {% if blocked_records %}
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for record in blocked_records %}
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              {% if record.blocked.profile.avatar %}
+                <img src="{{ record.blocked.profile.avatar.url }}" alt="{{ record.blocked.username }}" class="avatar avatar-md">
+              {% else %}
+                <div class="avatar avatar-md">{{ record.blocked.username|slice:":1" }}</div>
+              {% endif %}
+              <div>
+                <span style="font-weight: 600; color: var(--navy-dark); font-size: 0.95rem;">
+                  {{ record.blocked.profile.get_display_name }}
+                </span>
+                <span style="font-size: 0.825rem; color: var(--text-muted);">@{{ record.blocked.username }}</span>
+                <div style="font-size: 0.75rem; color: var(--text-light);">Blocked on {{ record.created_at|date:"M d, Y" }}</div>
+              </div>
+            </div>
+
+            <form action="{% url 'social:block_toggle' username=record.blocked.username %}" method="post">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-secondary btn-sm">Unblock</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">🛡️</div>
+        <h3 class="empty-state-title">No blocked accounts</h3>
+        <p class="empty-state-text">You haven't blocked any accounts. ConnectSphere is committed to keeping your feed safe.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Users - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card">
+    <h1 style="font-size: 1.3rem; color: var(--navy-dark); font-weight: 700; margin-bottom: 1rem;">
+      Find People on ConnectSphere
+    </h1>
+
+    <form action="{% url 'accounts:search' %}" method="get" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+      <input 
+        type="search" 
+        name="q" 
+        value="{{ query }}" 
+        placeholder="Search by username or name..." 
+        class="form-control" 
+        autofocus 
+        id="search-page-input"
+      >
+      <button type="submit" class="btn btn-primary" id="btn-search-submit">Search</button>
+    </form>
+
+    {% if query %}
+      <h2 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Results for "<strong>{{ query }}</strong>" ({{ results|length }})
+      </h2>
+
+      {% if results %}
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          {% for user_obj in results %}
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background-color: var(--bg-surface);">
+              <div style="display: flex; align-items: center; gap: 0.85rem;">
+                <a href="{% url 'accounts:profile_detail' username=user_obj.username %}">
+                  {% if user_obj.profile.avatar %}
+                    <img src="{{ user_obj.profile.avatar.url }}" alt="{{ user_obj.username }}" class="avatar avatar-md">
+                  {% else %}
+                    <div class="avatar avatar-md">{{ user_obj.username|slice:":1" }}</div>
+                  {% endif %}
+                </a>
+                <div>
+                  <a href="{% url 'accounts:profile_detail' username=user_obj.username %}" style="font-weight: 600; color: var(--navy-dark); font-size: 0.95rem;">
+                    {{ user_obj.profile.get_display_name }}
+                  </a>
+                  <div style="font-size: 0.825rem; color: var(--text-muted);">@{{ user_obj.username }}</div>
+                  {% if user_obj.profile.bio %}
+                    <div style="font-size: 0.825rem; color: var(--text-main); margin-top: 0.2rem;">
+                      {{ user_obj.profile.bio|truncatechars:80 }}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div>
+                <form action="{% url 'social:follow_toggle' username=user_obj.username %}" method="post">
+                  {% csrf_token %}
+                  {% if user_obj.is_following %}
+                    <button type="submit" class="btn btn-secondary btn-sm">Following</button>
+                  {% else %}
+                    <button type="submit" class="btn btn-primary btn-sm">+ Follow</button>
+                  {% endif %}
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <h3 class="empty-state-title">No users found</h3>
+          <p class="empty-state-text">No active users match your query. Try searching for a different username.</p>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">👥</div>
+        <h3 class="empty-state-title">Search for users</h3>
+        <p class="empty-state-text">Type a username or display name above to explore profiles and build your network.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

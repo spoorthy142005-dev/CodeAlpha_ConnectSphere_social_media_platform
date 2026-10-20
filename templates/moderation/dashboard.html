@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Trust & Safety Moderation Dashboard - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+      <div>
+        <h1 style="font-size: 1.4rem; color: var(--navy-dark); font-weight: 700;">Trust & Safety Center</h1>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Staff & Moderator review queue for reported content and violations.</p>
+      </div>
+      <span class="btn btn-secondary btn-sm" style="cursor: default;">Staff Access Active</span>
+    </div>
+
+    <!-- Status Tabs -->
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
+      <a href="?status=pending" class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}">
+        Pending ({{ counts.pending }})
+      </a>
+      <a href="?status=reviewed" class="btn btn-sm {% if status_filter == 'reviewed' %}btn-primary{% else %}btn-secondary{% endif %}">
+        Reviewed ({{ counts.reviewed }})
+      </a>
+      <a href="?status=action_taken" class="btn btn-sm {% if status_filter == 'action_taken' %}btn-primary{% else %}btn-secondary{% endif %}">
+        Action Taken ({{ counts.action_taken }})
+      </a>
+      <a href="?status=dismissed" class="btn btn-sm {% if status_filter == 'dismissed' %}btn-primary{% else %}btn-secondary{% endif %}">
+        Dismissed ({{ counts.dismissed }})
+      </a>
+    </div>
+
+    {% if page_obj %}
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for report in page_obj %}
+          <div style="padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background-color: var(--bg-surface);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+              <div>
+                <span style="font-weight: 700; color: var(--navy-dark); font-size: 0.95rem;">
+                  Report #{{ report.id }}
+                </span>
+                <span class="btn btn-sm" style="font-size: 0.75rem; padding: 0.15rem 0.4rem; background-color: var(--bg-subtle);">
+                  {{ report.get_reason_display }}
+                </span>
+              </div>
+              <a href="{% url 'moderation:review' report_id=report.id %}" class="btn btn-primary btn-sm">
+                Review & Take Action
+              </a>
+            </div>
+
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              Filed by <strong>@{{ report.reporter.username }}</strong> on {{ report.created_at|date:"M d, Y · H:i" }}
+            </div>
+
+            <div style="background-color: var(--bg-subtle); padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.85rem; margin-bottom: 0.5rem;">
+              {% if report.post %}
+                <strong>Reported Post:</strong> {{ report.post.content|truncatechars:100|default:'[Image Post]' }} (Author: @{{ report.post.author.username }})
+              {% elif report.comment %}
+                <strong>Reported Comment:</strong> {{ report.comment.content|truncatechars:100 }} (Author: @{{ report.comment.author.username }})
+              {% elif report.reported_user %}
+                <strong>Reported User:</strong> @{{ report.reported_user.username }}
+              {% else %}
+                <em>Target content has been deleted.</em>
+              {% endif %}
+            </div>
+
+            {% if report.notes %}
+              <div style="font-size: 0.825rem; color: var(--text-main);">
+                <strong>Reporter notes:</strong> "{{ report.notes }}"
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">✅</div>
+        <h3 class="empty-state-title">No reports in this queue</h3>
+        <p class="empty-state-text">All community reports for this category have been processed and reviewed.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

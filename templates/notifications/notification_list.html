@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+      <div>
+        <h1 style="font-size: 1.3rem; color: var(--navy-dark); font-weight: 700;">Notifications</h1>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Activity updates and interactions on your content.</p>
+      </div>
+
+      {% if unread_notifications_count > 0 %}
+        <form action="{% url 'notifications:mark_all_as_read' %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary btn-sm" id="btn-mark-all-read">
+            ✓ Mark all as read
+          </button>
+        </form>
+      {% endif %}
+    </div>
+
+    {% if page_obj %}
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for note in page_obj %}
+          <div class="notification-card {% if not note.is_read %}unread{% endif %}" id="notification-{{ note.id }}">
+            <div class="notification-content">
+              <a href="{% url 'accounts:profile_detail' username=note.actor.username %}">
+                {% if note.actor.profile.avatar %}
+                  <img src="{{ note.actor.profile.avatar.url }}" alt="{{ note.actor.username }}" class="avatar avatar-md">
+                {% else %}
+                  <div class="avatar avatar-md">{{ note.actor.username|slice:":1" }}</div>
+                {% endif %}
+              </a>
+              <div>
+                <div style="font-size: 0.9rem;">
+                  <a href="{% url 'accounts:profile_detail' username=note.actor.username %}" style="font-weight: 600; color: var(--navy-dark);">
+                    @{{ note.actor.username }}
+                  </a>
+                  <span>{{ note.get_event_type_display }}</span>
+                  {% if note.post %}
+                    <a href="{% url 'posts:post_detail' post_id=note.post_id %}" style="font-weight: 500;">
+                      "{{ note.post.content|truncatechars:35|default:'view post' }}"
+                    </a>
+                  {% endif %}
+                </div>
+                <div style="font-size: 0.775rem; color: var(--text-light); margin-top: 0.2rem;">
+                  {{ note.created_at|timesince }} ago
+                </div>
+              </div>
+            </div>
+
+            {% if not note.is_read %}
+              <form action="{% url 'notifications:mark_as_read' notification_id=note.id %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;" title="Mark read">
+                  Mark read
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+        <nav class="pagination" aria-label="Notifications pagination">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="page-link">&laquo; Newer</a>
+          {% endif %}
+
+          <span class="page-link active">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="page-link">Older &raquo;</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">🔔</div>
+        <h3 class="empty-state-title">No notifications yet</h3>
+        <p class="empty-state-text">When people follow you, like your posts, or comment on your thoughts, you'll see them here.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

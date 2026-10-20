@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ list_type }} of @{{ target_user.username }} - ConnectSphere{% endblock %}
+
+{% block content %}
+<div class="app-layout app-layout-center">
+  <div class="sidebar-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+      <div>
+        <h1 style="font-size: 1.3rem; color: var(--navy-dark); font-weight: 700;">
+          {{ list_type }}
+        </h1>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          For <a href="{% url 'accounts:profile_detail' username=target_user.username %}">@{{ target_user.username }}</a>
+        </div>
+      </div>
+      <a href="{% url 'accounts:profile_detail' username=target_user.username %}" class="btn btn-secondary btn-sm">
+        Back to Profile
+      </a>
+    </div>
+
+    {% if user_list %}
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for u in user_list %}
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <a href="{% url 'accounts:profile_detail' username=u.username %}">
+                {% if u.profile.avatar %}
+                  <img src="{{ u.profile.avatar.url }}" alt="{{ u.username }}" class="avatar avatar-md">
+                {% else %}
+                  <div class="avatar avatar-md">{{ u.username|slice:":1" }}</div>
+                {% endif %}
+              </a>
+              <div>
+                <a href="{% url 'accounts:profile_detail' username=u.username %}" style="font-weight: 600; color: var(--navy-dark); font-size: 0.95rem;">
+                  {{ u.profile.get_display_name }}
+                </a>
+                <div style="font-size: 0.825rem; color: var(--text-muted);">@{{ u.username }}</div>
+              </div>
+            </div>
+
+            {% if u != request.user %}
+              <form action="{% url 'social:follow_toggle' username=u.username %}" method="post">
+                {% csrf_token %}
+                {% if u.is_followed_by_me %}
+                  <button type="submit" class="btn btn-secondary btn-sm">Following</button>
+                {% else %}
+                  <button type="submit" class="btn btn-primary btn-sm">+ Follow</button>
+                {% endif %}
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">👥</div>
+        <h3 class="empty-state-title">No users to display</h3>
+        <p class="empty-state-text">There are currently no {{ list_type|lower }} for @{{ target_user.username }}.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
